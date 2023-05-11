@@ -13,8 +13,8 @@ wget https://data.sdss.org/sas/dr17/eboss/photoObj/frames/301/8162/6/frame-z-008
 
 cd ..
 
-mkdir labels
-cd labels
+mkdir calibration
+cd calibration
 wget https://data.sdss.org/sas/dr17/eboss/sweeps/dr13_final/301/calibObj-003918-3-gal.fits.gz -nc
 wget https://data.sdss.org/sas/dr17/eboss/sweeps/dr13_final/301/calibObj-003918-3-star.fits.gz -nc
 wget https://data.sdss.org/sas/dr17/eboss/sweeps/dr13_final/301/calibObj-003918-3-sky.fits.gz -nc

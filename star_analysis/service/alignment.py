@@ -7,7 +7,7 @@ import numpy as np
 
 
 class AlignmentService:
-    def __load_files(self, files: list[str]) -> dict[HDUList]:
+    def __load_files(self, files: list[str]) -> dict[str, HDUList]:
         return {file: fits.open(file) for file in files}
 
     def align_optimal(self, files: list[str]) -> np.ndarray:

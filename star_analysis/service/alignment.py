@@ -61,7 +61,7 @@ class AlignmentService:
         aligned_image = np.zeros(reference.shape)
 
         masked_coords = coords[mask].astype(int)
-        masked_pixels = aligned_pixels[mask].astype(int)
+        masked_pixels = np.round(aligned_pixels[mask], 0).astype(int)
         aligned_image[masked_coords[:, 0], masked_coords[:, 1]
                       ] = other.data[masked_pixels[:, 0], masked_pixels[:, 1]]
 

@@ -17,9 +17,9 @@ class DataSplitService():
                 f"The percentage of samples in each set must sum to one! {phase_distribution}")
 
         splitted_columns = np.array_split(
-            image, indices_or_sections=chunk_shape[0], axis=0)
+            image, indices_or_sections=range(chunk_shape[0], image.shape[0], chunk_shape[0]), axis=0)
         chunks = [np.array_split(
-            chunk, indices_or_sections=chunk_shape[0], axis=1) for chunk in splitted_columns]
+            chunk, indices_or_sections=range(chunk_shape[1], image.shape[1], chunk_shape[1]), axis=1) for chunk in splitted_columns]
         chunks = [chunk for lst in chunks for chunk in lst]
 
         chunks = self.__fix_shape(chunks=chunks, chunk_shape=chunk_shape)
@@ -33,7 +33,7 @@ class DataSplitService():
                 corrected_chunnks.append(chunk)
                 continue
 
-            sized_image = np.zeros(chunk_shape)
+            sized_image = np.zeros(chunk_shape, dtype=int)
             sized_image[:chunk.shape[0], :chunk_shape[1]] = chunk
             corrected_chunnks.append(sized_image)
 
@@ -58,7 +58,7 @@ class DataSplitService():
             for chunk, phase in zip(chunks[assigned_chunks_count:], chain.from_iterable(repeat(phases_to_assign))):
                 phase_data[phase].append(chunk)
 
-                if phase_data[phase] / len(chunks) >= phase_distribution[phase]:
+                if len(phase_data[phase]) / len(chunks) >= phase_distribution[phase]:
                     phases_to_assign.remove(phase)
                     break
 

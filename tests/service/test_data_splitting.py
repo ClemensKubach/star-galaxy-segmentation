@@ -59,3 +59,17 @@ def test_creates_correct_chunks(phase_sorter_mock: MagicMock):
 
     for real, expected in zip(splitted_chunks, expected_chunks):
         assert (real == expected).all()
+
+
+def test_correct_split_ratio():
+    data_splitter = DataSplitService()
+    shape = (2, 2)
+    distribution = {
+        Phase.train: 7/10, Phase.test: 1/10, Phase.validation: 2/10}
+    splitted_chunks = data_splitter.split(
+        image=get_dummy_image(), chunk_shape=shape, phase_distribution=distribution)
+
+    combined_len = len([i for lst in splitted_chunks.values() for i in lst])
+
+    for phase, amount in distribution.items():
+        assert len(splitted_chunks[phase]) / combined_len - amount < 0.05

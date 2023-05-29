@@ -4,6 +4,11 @@ from astropy.io import fits
 from astropy.io.fits import HDUList, PrimaryHDU
 from astropy.wcs import WCS
 import numpy as np
+import logging
+from tqdm import tqdm
+
+
+logger = logging.getLogger(__name__)
 
 
 class AlignmentService:
@@ -14,22 +19,30 @@ class AlignmentService:
         loaded_files = self.__load_files(files=files)
 
         lost_pixels_for_permutation = defaultdict(int)
-        for permutation in permutations(files, len(files)):
-            reference = loaded_files[permutation[0]]
-            for other_file in permutation[1:]:
+        logger.info("Finding best alignment")
+        for file in tqdm(files):
+            reference = loaded_files[file]
+            for other_file in files:
+                if file == other_file:
+                    continue
+
                 other = loaded_files[other_file]
-                lost_pixels_for_permutation[permutation] += self.__get_lost_pixel_count(
-                    reference=reference, other=other)
+                lost_pixels_for_permutation[file] += self.__get_lost_pixel_count(
+                    reference=reference[0], other=other[0])
 
         best_permutation = min(lost_pixels_for_permutation,
                                key=lost_pixels_for_permutation.get)
 
-        reference = loaded_files[best_permutation[0]]
-        aligned_images = [reference]
-        for other_file in best_permutation[1:]:
+        logger.info("Aligning images")
+        reference = loaded_files[best_permutation]
+        aligned_images = [reference[0].data]
+        for other_file in tqdm(files):
+            if other_file == best_permutation:
+                continue
+
             other = loaded_files[other_file]
             aligned_images.append(self.__align_image(
-                reference=reference, other=other))
+                reference=reference[0], other=other[0]))
 
         return np.stack(aligned_images)
 
@@ -37,7 +50,11 @@ class AlignmentService:
         _, aligned_pixels = self.__align_pixels(
             reference=reference, other=other)
 
-        return (aligned_pixels < 0).any(axis=-1).sum()
+        return self.__get_pixel_mask(reference, aligned_pixels).sum()
+
+    def __get_pixel_mask(self, reference: PrimaryHDU, pixel_coords: np.ndarray) -> np.ndarray:
+        return ~(pixel_coords < 0).any(
+            axis=-1) & ((pixel_coords[:, 0] < reference.shape[0])) & ((pixel_coords[:, 1] < reference.shape[1]))
 
     def __align_pixels(self, reference: PrimaryHDU, other: PrimaryHDU) -> tuple[np.ndarray, np.ndarray]:
         reference_system = WCS(reference.header)
@@ -57,11 +74,12 @@ class AlignmentService:
         coords, aligned_pixels = self.__align_pixels(
             reference=reference, other=other)
 
-        mask = ~(aligned_pixels < 0).any(axis=-1)
+        aligned_pixels = np.round(aligned_pixels, 0).astype(int)
+        mask = self.__get_pixel_mask(reference, aligned_pixels)
         aligned_image = np.zeros(reference.shape)
 
         masked_coords = coords[mask].astype(int)
-        masked_pixels = np.round(aligned_pixels[mask], 0).astype(int)
+        masked_pixels = aligned_pixels[mask]
         aligned_image[masked_coords[:, 0], masked_coords[:, 1]
                       ] = other.data[masked_pixels[:, 0], masked_pixels[:, 1]]
 

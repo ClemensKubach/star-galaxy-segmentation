@@ -21,16 +21,12 @@ class AlignmentService:
         hdu_frames = self.__load_files(files)
 
         reference = hdu_frames[0][0]
-        for other in hdu_frames[1:]:
-            reference, _ = self.__align_image(reference, other[0])
-
         results = [reference]
         for other in hdu_frames[1:]:
             _, other_cutout = self.__align_image(reference, other[0])
             results.append(other_cutout)
 
         min_dims = np.min([result.shape for result in results], axis=0)
-
         return np.stack([cutout_frame.data[:min_dims[0], :min_dims[1]] for cutout_frame in results]).T
 
     def __align_image(self, reference: Union[PrimaryHDU, Cutout2D], other: PrimaryHDU) -> tuple[Cutout2D, Cutout2D]:

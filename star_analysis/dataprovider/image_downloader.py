@@ -28,7 +28,7 @@ class ImageDownloader:
 
         loaded_images = self.__get_images(
             ImageDownloader.URL, image_path)
-        
+
         self.__loaded_images = 0
         loaded_labels = self.__get_images(
             ImageDownloader.LABEL_URL, label_path)

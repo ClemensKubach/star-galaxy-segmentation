@@ -1,4 +1,3 @@
-import math
 from typing import Union
 from astropy.io import fits
 from astropy.io.fits import HDUList, PrimaryHDU

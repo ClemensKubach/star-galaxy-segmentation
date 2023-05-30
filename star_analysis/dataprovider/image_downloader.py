@@ -43,12 +43,23 @@ class ImageDownloader:
     def __is_file(self, name: str) -> bool:
         return name.endswith('.bz2') or name.endswith('.gz')
 
+    def __ignore(self, name: str) -> bool:
+        return '.' in name
+
     def __get_images(self, url: str, folder: str) -> list[str]:
         if self.__limit is not None and self.__loaded_images >= self.__limit:
             return []
 
         logger.info(f"Getting images from {url}")
         base_table = requests.get(url)
+
+        try:
+            base_table.raise_for_status()
+        except:
+            logger.warning(
+                f"Got {base_table.status_code} for {url}:\n {base_table.content}"
+            )
+            return []
 
         html_data = bs4.BeautifulSoup(base_table.content)
         table = html_data.find('table', {'id': 'list'}).find('tbody')
@@ -61,7 +72,7 @@ class ImageDownloader:
             [self.__combine_url(url, i) for i in table_links if self.__is_file(i)], folder)
 
         now_final_images = []
-        for non_final_link in [i for i in table_links if not self.__is_file(i)]:
+        for non_final_link in [i for i in table_links if not self.__is_file(i) and not self.__ignore(i)]:
             now_final_images.extend(self.__get_images(
                 self.__combine_url(url, non_final_link), folder)
             )
@@ -80,11 +91,11 @@ class ImageDownloader:
         with ProcessPoolExecutor(max_workers=self.__max_workers) as handler:
             futures = handler.map(self._stream_download, urls, repeat(folder))
 
-        local_files.extend(futures)
+        local_files.extend((i for i in futures if i is not None))
 
         return local_files
 
-    def _stream_download(self, url: str, folder) -> str:
+    def _stream_download(self, url: str, folder) -> Optional[str]:
         local_filename = os.path.join(folder, url.split('/')[-1])
 
         if os.path.exists(local_filename):
@@ -93,7 +104,12 @@ class ImageDownloader:
         logger.info(f"Downloading {url}")
 
         with requests.get(url, stream=True) as r:
-            r.raise_for_status()
+            try:
+                r.raise_for_status()
+            except:
+                logger.warning(f"could not download {url}")
+                return None
+
             with open(local_filename, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)

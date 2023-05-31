@@ -96,7 +96,10 @@ class ImageDownloader:
         return local_files
 
     def _stream_download(self, url: str, folder) -> Optional[str]:
-        local_filename = os.path.join(folder, url.split('/')[-1])
+        file_name = url.split('/')[-1]
+        folder = file_name.split('-')[2] + '/'
+        os.makedirs(os.path.join(folder, folder), exist_ok=True)
+        local_filename = os.path.join(folder, folder, file_name)
 
         if os.path.exists(local_filename):
             return local_filename

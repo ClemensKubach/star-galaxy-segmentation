@@ -106,8 +106,6 @@ class ImageDownloader:
         os.makedirs(os.path.join(folder, file_folder), exist_ok=True)
         local_filename = os.path.join(folder, file_folder, file_name)
 
-        logger.info(f"Downloading {url}")
-
         with requests.get(url, stream=True) as r:
             try:
                 r.raise_for_status()
@@ -116,9 +114,10 @@ class ImageDownloader:
                 return None
 
             file_size = int(r.headers['Content-Length'])
-
             if os.path.exists(local_filename) and os.path.getsize(local_filename) == file_size:
                 return local_filename
+            
+            logger.info(f"Downloading {url}")
 
             with open(local_filename, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=8192):

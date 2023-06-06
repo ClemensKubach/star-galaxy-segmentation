@@ -5,6 +5,7 @@ import os
 from typing import Optional
 import requests
 import bs4
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class ImageDownloader:
 
         self.__loaded_images = 0
 
-    def download(self, to: str, only_labels: bool = False) -> tuple[list[str], list[str]]:
+    def download(self, to: str, batch: Optional[str] = None, only_labels: bool = False) -> tuple[list[str], list[str]]:
         image_path = os.path.join(to, 'images')
         label_path = os.path.join(to, 'labels')
 
@@ -29,15 +30,18 @@ class ImageDownloader:
         loaded_images = []
         if not only_labels:
             loaded_images = self.__get_images(
-                ImageDownloader.URL, image_path)
+                self.__combine_url(ImageDownloader.URL, batch), image_path)
 
         self.__loaded_images = 0
         loaded_labels = self.__get_images(
-            ImageDownloader.LABEL_URL, label_path)
+            ImageDownloader.LABEL_URL, label_path, re.compile(f"-0*{batch}-"))
 
         return loaded_images, loaded_labels
 
-    def __combine_url(self, base: str, extension: str) -> str:
+    def __combine_url(self, base: str, extension: Optional[str]) -> str:
+        if extension is None:
+            return base
+
         return f"{base}{'/' if not base.endswith('/') and not extension.startswith('/') else ''}{extension}"
 
     def __is_file(self, name: str) -> bool:
@@ -46,7 +50,7 @@ class ImageDownloader:
     def __ignore(self, name: str) -> bool:
         return '.' in name
 
-    def __get_images(self, url: str, folder: str) -> list[str]:
+    def __get_images(self, url: str, folder: str, pattern: Optional[re.Pattern] = None) -> list[str]:
         if self.__limit is not None and self.__loaded_images >= self.__limit:
             return []
 
@@ -66,6 +70,7 @@ class ImageDownloader:
 
         table_links = [row['href']
                        for row in table.find_all('a') if row['href'] != '../'
+                       and (pattern is not None and bool(pattern.search(row['href'])) or pattern is None)
                        ]
 
         loaded_images = self.__download_urls(
@@ -101,9 +106,6 @@ class ImageDownloader:
         os.makedirs(os.path.join(folder, file_folder), exist_ok=True)
         local_filename = os.path.join(folder, file_folder, file_name)
 
-        if os.path.exists(local_filename):
-            return local_filename
-
         logger.info(f"Downloading {url}")
 
         with requests.get(url, stream=True) as r:
@@ -112,6 +114,11 @@ class ImageDownloader:
             except:
                 logger.warning(f"could not download {url}")
                 return None
+
+            file_size = int(r.headers['Content-Length'])
+
+            if os.path.exists(local_filename) and os.path.getsize(local_filename) == file_size:
+                return local_filename
 
             with open(local_filename, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=8192):

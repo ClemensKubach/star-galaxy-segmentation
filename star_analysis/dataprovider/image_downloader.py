@@ -14,27 +14,28 @@ class ImageDownloader:
     URL = "https://data.sdss.org/sas/dr17/eboss/photoObj/frames/301/"
     LABEL_URL = "https://data.sdss.org/sas/dr17/eboss/sweeps/dr13_final/301/"
 
-    def __init__(self, limit: Optional[int] = None, max_workers: int = 4) -> None:
-        self.__limit = limit
+    def __init__(self, to: str, batch: Optional[str] = None, only_labels: bool = False, max_workers: int = 4, fast_check: bool = True) -> None:
         self.__max_workers = max_workers
+        self.__to = to
+        self.batch = batch
+        self.__only_labels = only_labels
+        self.__fast_check = fast_check
 
-        self.__loaded_images = 0
-
-    def download(self, to: str, batch: Optional[str] = None, only_labels: bool = False) -> tuple[list[str], list[str]]:
-        image_path = os.path.join(to, 'images')
-        label_path = os.path.join(to, 'labels')
+    def download(self) -> tuple[list[str], list[str]]:
+        image_path = os.path.join(self.__to, 'images')
+        label_path = os.path.join(self.__to, 'labels')
 
         os.makedirs(image_path, exist_ok=True)
         os.makedirs(label_path, exist_ok=True)
 
         loaded_images = []
-        if not only_labels:
+        if not self.__only_labels:
             loaded_images = self.__get_images(
-                self.__combine_url(ImageDownloader.URL, batch), image_path)
+                self.__combine_url(ImageDownloader.URL, self.batch), image_path)
 
         self.__loaded_images = 0
         loaded_labels = self.__get_images(
-            ImageDownloader.LABEL_URL, label_path, re.compile(f"-0*{batch}-"))
+            ImageDownloader.LABEL_URL, label_path, re.compile(f"-0*{self.batch}-"))
 
         return loaded_images, loaded_labels
 
@@ -51,9 +52,6 @@ class ImageDownloader:
         return '.' in name or not '/' in name
 
     def __get_images(self, url: str, folder: str, pattern: Optional[re.Pattern] = None) -> list[str]:
-        if self.__limit is not None and self.__loaded_images >= self.__limit:
-            return []
-
         logger.info(f"Getting images from {url}")
         base_table = requests.get(url)
 
@@ -65,7 +63,7 @@ class ImageDownloader:
             )
             return []
 
-        html_data = bs4.BeautifulSoup(base_table.content)
+        html_data = bs4.BeautifulSoup(base_table.content, features="lxml")
         table = html_data.find('table', {'id': 'list'}).find('tbody')
 
         table_links = [row['href']
@@ -90,9 +88,6 @@ class ImageDownloader:
         if not urls:
             return local_files
 
-        if self.__limit is not None:
-            urls = urls[:self.__limit - self.__loaded_images]
-
         with ProcessPoolExecutor(max_workers=self.__max_workers) as handler:
             futures = handler.map(self._stream_download, urls, repeat(folder))
 
@@ -105,6 +100,9 @@ class ImageDownloader:
         file_folder = file_name.split('-')[2] + '/'
         os.makedirs(os.path.join(folder, file_folder), exist_ok=True)
         local_filename = os.path.join(folder, file_folder, file_name)
+
+        if self.__fast_check and os.path.exists(local_filename):
+            return local_filename
 
         with requests.get(url, stream=True) as r:
             try:

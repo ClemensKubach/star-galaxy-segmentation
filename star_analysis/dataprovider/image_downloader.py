@@ -48,7 +48,7 @@ class ImageDownloader:
         return name.endswith('.bz2') or name.endswith('.gz')
 
     def __ignore(self, name: str) -> bool:
-        return '.' in name
+        return '.' in name or not '/' in name
 
     def __get_images(self, url: str, folder: str, pattern: Optional[re.Pattern] = None) -> list[str]:
         if self.__limit is not None and self.__loaded_images >= self.__limit:
@@ -116,7 +116,7 @@ class ImageDownloader:
             file_size = int(r.headers['Content-Length'])
             if os.path.exists(local_filename) and os.path.getsize(local_filename) == file_size:
                 return local_filename
-            
+
             logger.info(f"Downloading {url}")
 
             with open(local_filename, 'wb') as f:

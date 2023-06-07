@@ -15,17 +15,17 @@ class ImageFile:
     spectrum: str
     run: str
     camcol: str
-    frame_sequence: str
+    field: str
     fullname: str
 
     @classmethod
     def from_str(cls: ImageFile, name: str) -> ImageFile:
         data = name.split('/')[-1].split('.')[0].split('-')[1:]
 
-        return cls(spectrum=data[0], run=data[1], camcol=data[2], frame_sequence=data[3], fullname=name)
+        return cls(spectrum=data[0], run=data[1], camcol=data[2], field=data[3], fullname=name)
 
     def get_keys(self) -> tuple[str]:
-        return self.run, self.camcol, self.frame_sequence
+        return self.run, self.camcol, self.field
 
     def __lt__(self, other) -> bool:
         if isinstance(other, self.__class__):
@@ -82,12 +82,21 @@ class LabelFile:
 
 
 class SDSSDataProvider:
-    def __init__(self, downloader: ImageDownloader = ImageDownloader(os.path.join((pathlib.Path(__file__).parent.parent.resolve(), 'data'))), alignment_service: Optional[AlignmentService] = None):
+    FIXED_VALIDATION_FIELD = "0080"
+    FIXED_VALIDATION_CAMCOL = "6"
+    FIXED_VALIDATION_RUN = "8162"
+
+    def __init__(self, downloader: ImageDownloader = ImageDownloader(os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'data')), alignment_service: Optional[AlignmentService] = None):
         self.__downloader = downloader
         self.__alignment_service = alignment_service
 
         self.__data_files = {}
         self.__label_files = {}
+
+        self.__data_as_list: list[tuple[list[str], list[str]]] = []
+
+        self.__fixed_validation_files = self.__downloader.download_exact(
+            run=SDSSDataProvider.FIXED_VALIDATION_RUN, camcol=SDSSDataProvider.FIXED_VALIDATION_CAMCOL, field=SDSSDataProvider.FIXED_VALIDATION_FIELD)
 
     @property
     def runs(self) -> list[str]:
@@ -101,15 +110,21 @@ class SDSSDataProvider:
         return list(camcols)
 
     @property
-    def frame_sequences(self) -> list[str]:
+    def fields(self) -> list[str]:
         frame_seqs = {
             frame_seq for run in self.runs for camcol in self.__data_files[run] for frame_seq in self.__data_files[run][camcol]}
 
         return list(frame_seqs)
 
-    def prepare(self, batch: Optional[str] = None):
-        if batch is not None:
-            self.__downloader.batch = batch
+    @property
+    def num_labels(self) -> int:
+        if self.__alignment_service is None:
+            self.__create_alignment_service()
+        return self.__alignment_service.num_labels
+
+    def prepare(self, run: Optional[str] = None):
+        if run is not None:
+            self.__downloader.run = run
 
         data_files, label_files = self.__downloader.download()
 
@@ -122,6 +137,15 @@ class SDSSDataProvider:
         self.__data_files = self.__create_object_map(image_objs)
         self.__label_files = self.__create_object_map(label_objs)
 
+        for run, run_data in self.__data_files.items():
+            for camcol, camcol_data in run_data.items():
+                for field, field_data in camcol_data.items():
+                    if field == SDSSDataProvider.FIXED_VALIDATION_FIELD:
+                        continue
+
+                    self.__data_as_list.append(
+                        (field_data, self.__label_files[run][camcol]))
+
     def __create_object_map(self, objects: list[Union[ImageFile, LabelFile]]) -> dict:
         files = {}
         for obj in objects:
@@ -129,7 +153,7 @@ class SDSSDataProvider:
 
             dict_level = files
             for i, key in enumerate(keys):
-                is_last_level = i != len(keys)
+                is_last_level = i == (len(keys) - 1)
 
                 if key not in dict_level:
                     dict_level[key] = {} if not is_last_level else []
@@ -137,6 +161,8 @@ class SDSSDataProvider:
                 if is_last_level:
                     dict_level[key].append(obj.fullname)
                     dict_level[key] = sorted(dict_level[key])
+                else:
+                    dict_level = dict_level[key]
 
         return files
 
@@ -150,13 +176,28 @@ class SDSSDataProvider:
         first_run = list(self.__label_files.keys())[0]
         first_camcol = list(self.__label_files[first_run].keys())[0]
 
-        first_labels = [fits.open(file)[1].data['OBJC_TYPE']
+        first_labels = [fits.open(file)[1].data['OBJC_TYPE'][0]
                         for file in self.__label_files[first_run][first_camcol]]
         self.__alignment_service = AlignmentService(
             {j: i for i, j in enumerate(set(first_labels))})
 
-    def get_aligned(self, run: str, camcol: str, frame_seq: str) -> np.ndarray:
+        return self.__alignment_service
+
+    def get_aligned(self, run: str, camcol: str, field: str) -> np.ndarray:
         if self.__alignment_service is None:
             self.__alignment_service = self.__create_alignment_service()
 
-        return self.__alignment_service.align(self.__data_files[run][camcol][frame_seq], self.__label_files[run][camcol])
+        return self.__alignment_service.align(self.__data_files[run][camcol][field], self.__label_files[run][camcol])
+
+    def __getitem__(self, item):
+        if self.__alignment_service is None:
+            self.__alignment_service = self.__create_alignment_service()
+
+        return self.__alignment_service.align(self.__data_as_list[item][0], self.__data_as_list[item][1])
+
+    def __next__(self):
+        if self.__alignment_service is None:
+            self.__alignment_service = self.__create_alignment_service()
+
+        for images, labels in self.__data_as_list:
+            yield self.__alignment_service.align(images, labels)

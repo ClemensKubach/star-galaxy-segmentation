@@ -2,3 +2,5 @@ pytorch
 torchvision
 astropy
 tqdm
+bs4
+lxml

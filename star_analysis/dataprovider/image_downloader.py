@@ -14,28 +14,45 @@ class ImageDownloader:
     URL = "https://data.sdss.org/sas/dr17/eboss/photoObj/frames/301/"
     LABEL_URL = "https://data.sdss.org/sas/dr17/eboss/sweeps/dr13_final/301/"
 
-    def __init__(self, to: str, batch: Optional[str] = None, only_labels: bool = False, max_workers: int = 4, fast_check: bool = True) -> None:
+    def __init__(self, to: str, run: Optional[str] = None, only_labels: bool = False, max_workers: int = 4, fast_check: bool = True) -> None:
         self.__max_workers = max_workers
         self.__to = to
-        self.batch = batch
+        self.run = run
         self.__only_labels = only_labels
         self.__fast_check = fast_check
 
-    def download(self) -> tuple[list[str], list[str]]:
+    def __prepare(self) -> tuple[str, str]:
         image_path = os.path.join(self.__to, 'images')
         label_path = os.path.join(self.__to, 'labels')
 
         os.makedirs(image_path, exist_ok=True)
         os.makedirs(label_path, exist_ok=True)
 
+        return image_path, label_path
+
+    def download(self) -> tuple[list[str], list[str]]:
+        image_path, label_path = self.__prepare()
+
         loaded_images = []
         if not self.__only_labels:
             loaded_images = self.__get_images(
-                self.__combine_url(ImageDownloader.URL, self.batch), image_path)
+                self.__combine_url(ImageDownloader.URL, self.run), image_path)
 
-        self.__loaded_images = 0
         loaded_labels = self.__get_images(
-            ImageDownloader.LABEL_URL, label_path, re.compile(f"-0*{self.batch}-"))
+            ImageDownloader.LABEL_URL, label_path, re.compile(f"-0*{self.run}-.*-(gal|star)\.") if self.run is not None else re.compile(f"-(gal|star)\."))
+
+        return loaded_images, loaded_labels
+
+    def download_exact(self, run: str, camcol: str, field: str):
+        image_path, label_path = self.__prepare()
+
+        loaded_images = self.__get_images(
+            self.__combine_url(ImageDownloader.URL, run), image_path, pattern=re.compile(f"[ugriz]-0*{run}-{camcol}-{field}"))
+
+        loaded_labels = self.__get_images(
+            ImageDownloader.LABEL_URL, label_path, re.compile(
+                f"-0*{run}-{camcol}-(gal|star)\.")
+        )
 
         return loaded_images, loaded_labels
 
@@ -50,6 +67,15 @@ class ImageDownloader:
 
     def __ignore(self, name: str) -> bool:
         return '.' in name or not '/' in name
+
+    def __has_pattern_and_matches(self, name: str, pattern: Optional[re.Pattern]):
+        if pattern is None:
+            return True
+
+        if '/' in name:
+            return True
+
+        return bool(pattern.search(name))
 
     def __get_images(self, url: str, folder: str, pattern: Optional[re.Pattern] = None) -> list[str]:
         logger.info(f"Getting images from {url}")
@@ -68,7 +94,7 @@ class ImageDownloader:
 
         table_links = [row['href']
                        for row in table.find_all('a') if row['href'] != '../'
-                       and (pattern is not None and bool(pattern.search(row['href'])) or pattern is None)
+                       and self.__has_pattern_and_matches(row['href'], pattern)
                        ]
 
         loaded_images = self.__download_urls(
@@ -77,7 +103,7 @@ class ImageDownloader:
         now_final_images = []
         for non_final_link in [i for i in table_links if not self.__is_file(i) and not self.__ignore(i)]:
             now_final_images.extend(self.__get_images(
-                self.__combine_url(url, non_final_link), folder)
+                self.__combine_url(url, non_final_link), folder, pattern=pattern)
             )
 
         return now_final_images + loaded_images
@@ -121,5 +147,4 @@ class ImageDownloader:
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)
 
-        self.__loaded_images += 1
         return local_filename

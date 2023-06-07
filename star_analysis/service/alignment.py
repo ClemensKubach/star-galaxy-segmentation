@@ -19,10 +19,14 @@ class AlignmentService:
     def __init__(self, label_encoder: dict[int, int]) -> None:
         self.__label_encoder = label_encoder
 
+    @property
+    def num_labels(self) -> int:
+        return len(self.__label_encoder)
+
     def __load_files(self, files: list[Union[str, HDUList]]) -> list[HDUList]:
         return [(fits.open(file) if isinstance(file, str) else file) for file in files]
 
-    def align(self, files: list[Union[str, HDUList]], labels: list[Union[str, HDUList]]) -> np.ndarray:
+    def align(self, files: list[Union[str, HDUList]], labels: list[Union[str, HDUList]]) -> tuple[np.ndarray, np.ndarray]:
         hdu_frames = self.__load_files(files)
         label_frames = [tables[1] for tables in self.__load_files(
             labels)
@@ -61,10 +65,8 @@ class AlignmentService:
         return cutout_1, cutout_2
 
     def __create_label_map(self, wcs: WCS, orig_image_frame_data: BinTableHDU, label_tables: list[BinTableHDU], base_size: tuple) -> np.ndarray:
-        print(len(label_tables))
         label_base = np.zeros((*base_size, len(self.__label_encoder)))
         for label_table in label_tables:
-            print(type(label_table))
             for run, type_, field, camcol,  ra, dec in zip(label_table.data['RUN'], label_table.data['OBJC_TYPE'], label_table.data['FIELD'], label_table.data['CAMCOL'], label_table.data['RA'], label_table.data['DEC']):
                 if field != orig_image_frame_data.data['FIELD'] or camcol != orig_image_frame_data.data['CAMCOL'] or run != orig_image_frame_data.data['RUN']:
                     continue
@@ -72,6 +74,8 @@ class AlignmentService:
                 coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
                 pixels = np.round(coord.to_pixel(
                     wcs=wcs, origin=1), 0).astype(int)
+                if pixels[0] >= label_base.shape[0] or pixels[1] >= label_base.shape[1]:
+                    continue
                 label_base[pixels[0], pixels[1],
                            self.__label_encoder[type_]] = 1
 

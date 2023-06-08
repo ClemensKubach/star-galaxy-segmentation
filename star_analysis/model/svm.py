@@ -11,6 +11,7 @@ import numpy as np
 from star_analysis.dataprovider.image_downloader import ImageDownloader
 from star_analysis.dataprovider.sdss_dataprovider import SDSSDataProvider
 from star_analysis.model.base_model import BaseModel
+from sklearn.metrics import accuracy_score, precision_score, recall_score
 from sklearn.svm import SVC
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class SVMModel(BaseModel):
     def __init__(self, threshold: int = 127):
         self.__predictor = SVC()
         self.__dataprovider = SDSSDataProvider(
-            ImageDownloader('/Volumes/T7/data'))
+            ImageDownloader('/Users/leopinetzki/data'))
         self.__threshold = threshold
 
     def __load_data_parallel(self, ids: list[int]):
@@ -106,13 +107,11 @@ class SVMModel(BaseModel):
     def __calculate_metrics(self, reconstructed_image: np.ndarray, true_image: np.ndarray) -> SVMTrainingStatistics:
         assert reconstructed_image.shape == true_image.shape
 
-        true_sum = true_image.sum()
-        recall = (~true_image.astype(bool) | reconstructed_image.astype(bool)).sum(
-            axis=(0, 1)) / true_sum
-        precision = (~reconstructed_image.astype(bool) | true_image.astype(bool)).sum(
-            axis=(0, 1)) / true_sum
-        accuracy = (reconstructed_image == true_image).sum(
-            axis=(0, 1)) / np.multiply.reduce(true_image.shape)
+        true_flat = true_image.flatten()
+        reconstructed_flat = reconstructed_image.flatten()
+        recall = recall_score(true_flat, reconstructed_flat)
+        precision = precision_score(true_flat, reconstructed_flat)
+        accuracy = accuracy_score(true_flat, reconstructed_flat)
 
         return SVMTrainingStatistics(accuracy=accuracy, precision=precision, recall=recall)
 

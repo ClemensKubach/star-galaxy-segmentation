@@ -17,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 class AlignmentService:
     def __init__(self, label_encoder: dict[int, int]) -> None:
-        self.__label_encoder = label_encoder
+        self.label_encoder = label_encoder
 
     @property
     def num_labels(self) -> int:
-        return len(self.__label_encoder)
+        return len(self.label_encoder)
 
     def __load_files(self, files: list[Union[str, HDUList]]) -> list[HDUList]:
         return [(fits.open(file) if isinstance(file, str) else file) for file in files]
@@ -32,10 +32,11 @@ class AlignmentService:
             labels)
         ]
 
-        reference = hdu_frames[0][0]
-        results = [reference]
+        results = [hdu_frames[0][0]]
         for other in hdu_frames[1:]:
-            _, other_cutout = self.__align_image(reference, other[0])
+            ref, other_cutout = self.__align_image(results[0], other[0])
+            if len(results) == 1:
+                results[0] = ref
             results.append(other_cutout)
 
         min_dims = np.min([result.shape for result in results], axis=0)
@@ -43,9 +44,18 @@ class AlignmentService:
             [cutout_frame.data[:min_dims[0], :min_dims[1]] for cutout_frame in results]).T
 
         label_map = self.__create_label_map(
-            WCS(reference), hdu_frames[0][3], label_frames, stacked_image.shape[:-1])
+            results[0].wcs, hdu_frames[0][3], label_frames, stacked_image.shape[:-1])
 
         return stacked_image, label_map
+
+    def get_demanded_label_vectors(self, label_map: np.ndarray) -> list[np.ndarray]:
+        vectors = []
+        for data in label_map.T:
+            xs, ys = data.nonzero()
+
+            vectors.append(np.stack((xs, ys)).T)
+
+        return vectors
 
     def __align_image(self, reference: Union[PrimaryHDU, Cutout2D], other: PrimaryHDU) -> tuple[Cutout2D, Cutout2D]:
         reference_wcs = WCS(reference.header) if not isinstance(reference,
@@ -65,7 +75,7 @@ class AlignmentService:
         return cutout_1, cutout_2
 
     def __create_label_map(self, wcs: WCS, orig_image_frame_data: BinTableHDU, label_tables: list[BinTableHDU], base_size: tuple) -> np.ndarray:
-        label_base = np.zeros((*base_size, len(self.__label_encoder)))
+        label_base = np.zeros((*base_size, len(self.label_encoder)))
         for label_table in label_tables:
             for run, type_, field, camcol,  ra, dec in zip(label_table.data['RUN'], label_table.data['OBJC_TYPE'], label_table.data['FIELD'], label_table.data['CAMCOL'], label_table.data['RA'], label_table.data['DEC']):
                 if field != orig_image_frame_data.data['FIELD'] or camcol != orig_image_frame_data.data['CAMCOL'] or run != orig_image_frame_data.data['RUN']:
@@ -77,6 +87,6 @@ class AlignmentService:
                 if pixels[0] >= label_base.shape[0] or pixels[1] >= label_base.shape[1]:
                     continue
                 label_base[pixels[0], pixels[1],
-                           self.__label_encoder[type_]] = 1
+                           self.label_encoder[type_]] = 1
 
         return label_base

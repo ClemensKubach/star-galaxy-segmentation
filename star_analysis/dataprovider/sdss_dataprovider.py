@@ -29,19 +29,33 @@ class ImageFile:
 
     def __lt__(self, other) -> bool:
         if isinstance(other, self.__class__):
+            if self.run < other.run:
+                return True
+            if self.camcol < other.camcol:
+                return True
+            if self.field < other.field:
+                return True
+
             return self.spectrum < other.spectrum
 
         return super().__lt__(other)
 
     def __gt__(self, other) -> bool:
         if isinstance(other, self.__class__):
-            return self.spectrum > other.spectrum
+            if self.run > other.run:
+                return True
+            if self.camcol > other.camcol:
+                return True
+            if self.field > other.field:
+                return True
+
+            return self.spectrum < other.spectrum
 
         return super().__gt__(other)
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, self.__class__):
-            return self.spectrum == other.spectrum
+            return self.spectrum == other.spectrum and self.run == other.run and self.camcol == other.camcol and self.field == other.field
 
         return super().__eq__(other)
 
@@ -64,19 +78,29 @@ class LabelFile:
 
     def __lt__(self, other) -> bool:
         if isinstance(other, self.__class__):
+            if self.run < other.run:
+                return True
+            if self.camcol < other.camcol:
+                return True
+
             return self.type_ < other.type_
 
         return super().__lt__(other)
 
     def __gt__(self, other) -> bool:
         if isinstance(other, self.__class__):
+            if self.run > other.run:
+                return True
+            if self.camcol > other.camcol:
+                return True
+
             return self.type_ > other.type_
 
         return super().__gt__(other)
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, self.__class__):
-            return self.type_ == other.type_
+            return self.type_ == other.type_ and self.run == other.run and self.camcol == other.camcol
 
         return super().__eq__(other)
 
@@ -88,7 +112,7 @@ class SDSSDataProvider:
 
     def __init__(self, downloader: ImageDownloader = ImageDownloader(os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'data')), alignment_service: Optional[AlignmentService] = None):
         self.__downloader = downloader
-        self.__alignment_service = alignment_service
+        self.alignment_service = alignment_service
 
         self.__data_files = {}
         self.__label_files = {}
@@ -118,9 +142,9 @@ class SDSSDataProvider:
 
     @property
     def num_labels(self) -> int:
-        if self.__alignment_service is None:
+        if self.alignment_service is None:
             self.__create_alignment_service()
-        return self.__alignment_service.num_labels
+        return self.alignment_service.num_labels
 
     def prepare(self, run: Optional[str] = None):
         if run is not None:
@@ -130,9 +154,15 @@ class SDSSDataProvider:
 
         self.__group_files(data_files, label_files)
 
+    def prepare_exact(self, run: str, camcol: str, field: str):
+        data_files, label_files = self.__downloader.download_exact(
+            run=run, camcol=camcol, field=field)
+
+        self.__group_files(data_files, label_files)
+
     def __group_files(self, images: list[str], labels: list[str]):
-        image_objs = [ImageFile.from_str(name) for name in images]
-        label_objs = [LabelFile.from_str(name) for name in labels]
+        image_objs = sorted([ImageFile.from_str(name) for name in images])
+        label_objs = sorted([LabelFile.from_str(name) for name in labels])
 
         self.__data_files = self.__create_object_map(image_objs)
         self.__label_files = self.__create_object_map(label_objs)
@@ -140,7 +170,7 @@ class SDSSDataProvider:
         for run, run_data in self.__data_files.items():
             for camcol, camcol_data in run_data.items():
                 for field, field_data in camcol_data.items():
-                    if field == SDSSDataProvider.FIXED_VALIDATION_FIELD:
+                    if field == SDSSDataProvider.FIXED_VALIDATION_FIELD and camcol == SDSSDataProvider.FIXED_VALIDATION_CAMCOL and run == SDSSDataProvider.FIXED_VALIDATION_FIELD:
                         continue
 
                     self.__data_as_list.append(
@@ -173,31 +203,34 @@ class SDSSDataProvider:
         return self.__data_files[run][camcol], self.__label_files[run][camcol]
 
     def __create_alignment_service(self):
-        first_run = list(self.__label_files.keys())[0]
-        first_camcol = list(self.__label_files[first_run].keys())[0]
-
         first_labels = [fits.open(file)[1].data['OBJC_TYPE'][0]
-                        for file in self.__label_files[first_run][first_camcol]]
-        self.__alignment_service = AlignmentService(
+                        for file in self.__fixed_validation_files[1]]
+        self.alignment_service = AlignmentService(
             {j: i for i, j in enumerate(set(first_labels))})
 
-        return self.__alignment_service
+        return self.alignment_service
 
     def get_aligned(self, run: str, camcol: str, field: str) -> np.ndarray:
-        if self.__alignment_service is None:
-            self.__alignment_service = self.__create_alignment_service()
+        if self.alignment_service is None:
+            self.alignment_service = self.__create_alignment_service()
 
-        return self.__alignment_service.align(self.__data_files[run][camcol][field], self.__label_files[run][camcol])
+        return self.alignment_service.align(self.__data_files[run][camcol][field], self.__label_files[run][camcol])
 
-    def __getitem__(self, item):
-        if self.__alignment_service is None:
-            self.__alignment_service = self.__create_alignment_service()
+    def get_provided_validation_set(self) -> tuple[np.ndarray, np.ndarray]:
+        if self.alignment_service is None:
+            self.alignment_service = self.__create_alignment_service()
 
-        return self.__alignment_service.align(self.__data_as_list[item][0], self.__data_as_list[item][1])
+        return self.alignment_service.align(self.__fixed_validation_files[0], self.__fixed_validation_files[1])
 
-    def __next__(self):
-        if self.__alignment_service is None:
-            self.__alignment_service = self.__create_alignment_service()
+    def __getitem__(self, item) -> tuple[np.ndarray, np.ndarray]:
+        if self.alignment_service is None:
+            self.alignment_service = self.__create_alignment_service()
+
+        return self.alignment_service.align(self.__data_as_list[item][0], self.__data_as_list[item][1])
+
+    def __next__(self) -> tuple[np.ndarray, np.ndarray]:
+        if self.alignment_service is None:
+            self.alignment_service = self.__create_alignment_service()
 
         for images, labels in self.__data_as_list:
-            yield self.__alignment_service.align(images, labels)
+            yield self.alignment_service.align(images, labels)

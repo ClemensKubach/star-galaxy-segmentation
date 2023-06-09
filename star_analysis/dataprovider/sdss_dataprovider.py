@@ -234,3 +234,6 @@ class SDSSDataProvider:
 
         for images, labels in self.__data_as_list:
             yield self.alignment_service.align(images, labels)
+
+    def __len__(self) -> int:
+        return len(self.__data_as_list)

@@ -31,6 +31,7 @@ class ImageDownloader:
         return image_path, label_path
 
     def download(self) -> tuple[list[str], list[str]]:
+        logger.info(f"Downloading {self.run or 'data'}")
         image_path, label_path = self.__prepare()
 
         loaded_images = []
@@ -43,15 +44,19 @@ class ImageDownloader:
 
         return loaded_images, loaded_labels
 
-    def download_exact(self, run: str, camcol: str, field: str):
+    def download_exact(self, run: str, camcol: str, field: str, force: bool = False):
         image_path, label_path = self.__prepare()
+        logger.info(f"Downloading {run} {camcol} {field}")
 
         loaded_images = self.__get_images(
-            self.__combine_url(ImageDownloader.URL, run), image_path, pattern=re.compile(f"[ugriz]-0*{run}-{camcol}-{field}"))
+            self.__combine_url(
+                ImageDownloader.URL, run),
+            image_path, pattern=re.compile(f"[ugriz]-0*{run}-{camcol}-{field}"), force=force
+        )
 
         loaded_labels = self.__get_images(
             ImageDownloader.LABEL_URL, label_path, re.compile(
-                f"-0*{run}-{camcol}-(gal|star)\.")
+                f"-0*{run}-{camcol}-(gal|star)\."), force=force
         )
 
         return loaded_images, loaded_labels
@@ -77,8 +82,7 @@ class ImageDownloader:
 
         return bool(pattern.search(name))
 
-    def __get_images(self, url: str, folder: str, pattern: Optional[re.Pattern] = None) -> list[str]:
-        logger.info(f"Getting images from {url}")
+    def __get_images(self, url: str, folder: str, pattern: Optional[re.Pattern] = None, force: bool = False) -> list[str]:
         base_table = requests.get(url)
 
         try:
@@ -98,36 +102,37 @@ class ImageDownloader:
                        ]
 
         loaded_images = self.__download_urls(
-            [self.__combine_url(url, i) for i in table_links if self.__is_file(i)], folder)
+            [self.__combine_url(url, i) for i in table_links if self.__is_file(i)], folder, force)
 
         now_final_images = []
         for non_final_link in [i for i in table_links if not self.__is_file(i) and not self.__ignore(i)]:
             now_final_images.extend(self.__get_images(
-                self.__combine_url(url, non_final_link), folder, pattern=pattern)
+                self.__combine_url(url, non_final_link), folder, pattern=pattern, force=force)
             )
 
         return now_final_images + loaded_images
 
-    def __download_urls(self, urls: list[str], folder: str) -> list[str]:
+    def __download_urls(self, urls: list[str], folder: str, force: bool) -> list[str]:
         local_files = []
 
         if not urls:
             return local_files
 
         with ProcessPoolExecutor(max_workers=self.__max_workers) as handler:
-            futures = handler.map(self._stream_download, urls, repeat(folder))
+            futures = handler.map(self._stream_download,
+                                  urls, repeat(folder), repeat(force))
 
         local_files.extend((i for i in futures if i is not None))
 
         return local_files
 
-    def _stream_download(self, url: str, folder) -> Optional[str]:
+    def _stream_download(self, url: str, folder: str, force: bool) -> Optional[str]:
         file_name = url.split('/')[-1]
         file_folder = file_name.split('-')[2] + '/'
         os.makedirs(os.path.join(folder, file_folder), exist_ok=True)
         local_filename = os.path.join(folder, file_folder, file_name)
 
-        if self.__fast_check and os.path.exists(local_filename):
+        if not force and self.__fast_check and os.path.exists(local_filename):
             return local_filename
 
         with requests.get(url, stream=True) as r:
@@ -138,7 +143,7 @@ class ImageDownloader:
                 return None
 
             file_size = int(r.headers['Content-Length'])
-            if os.path.exists(local_filename) and os.path.getsize(local_filename) == file_size:
+            if not force and os.path.exists(local_filename) and os.path.getsize(local_filename) == file_size:
                 return local_filename
 
             logger.info(f"Downloading {url}")

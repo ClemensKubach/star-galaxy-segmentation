@@ -5,9 +5,12 @@ import pathlib
 from typing import Optional, Union
 from star_analysis.service.alignment import AlignmentService
 from astropy.io import fits
+import logging
 
 import numpy as np
 from star_analysis.dataprovider.image_downloader import ImageDownloader
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -222,18 +225,30 @@ class SDSSDataProvider:
 
         return self.alignment_service.align(self.__fixed_validation_files[0], self.__fixed_validation_files[1])
 
-    def __getitem__(self, item) -> tuple[np.ndarray, np.ndarray]:
+    def __getitem__(self, item) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         if self.alignment_service is None:
             self.alignment_service = self.__create_alignment_service()
 
-        return self.alignment_service.align(self.__data_as_list[item][0], self.__data_as_list[item][1])
+        try:
+            return self.alignment_service.align(self.__data_as_list[item][0], self.__data_as_list[item][1])
+        except (OSError, EOFError):
+            image_obj = ImageFile.from_str(self.__data_as_list[item][0][0])
+            logger.warning(
+                f"Skipping {image_obj.run}, {image_obj.camcol} {image_obj.field}")
+            return None, None
 
-    def __next__(self) -> tuple[np.ndarray, np.ndarray]:
+    def __next__(self) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         if self.alignment_service is None:
             self.alignment_service = self.__create_alignment_service()
 
         for images, labels in self.__data_as_list:
-            yield self.alignment_service.align(images, labels)
+            try:
+                yield self.alignment_service.align(images, labels)
+            except (OSError, EOFError):
+                image_obj = ImageFile.from_str(images[0])
+                logger.warning(
+                    f"Skipping {image_obj.run}, {image_obj.camcol} {image_obj.field}")
+                return None, None
 
     def __len__(self) -> int:
         return len(self.__data_as_list)

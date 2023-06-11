@@ -1,12 +1,4 @@
-from star_analysis.data.datasets import Sdss
-
-
-def download():
-    Sdss(
-        patch_shape=None,
-        download=True
-    )
-
+from star_analysis.utils.download_dataset import download_sdss_dataset
 
 if __name__ == '__main__':
-    download()
+    download_sdss_dataset()

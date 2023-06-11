@@ -139,8 +139,8 @@ class SDSSDataProvider:
     @property
     def fields(self) -> list[str]:
         frame_seqs = {
-            frame_seq for run in self.runs for camcol in self.__data_files[run] for frame_seq in self.__data_files[run][camcol]}
-
+            frame_seq for run in self.runs for camcol in self.__data_files[run] for frame_seq in self.__data_files[run][camcol]
+        }
         return list(frame_seqs)
 
     @property
@@ -177,7 +177,10 @@ class SDSSDataProvider:
                         continue
 
                     self.__data_as_list.append(
-                        (field_data, self.__label_files[run][camcol]))
+                        (field_data, self.__label_files[run][camcol])
+                    )
+        self.__indexed_data = dict(enumerate(self.__data_as_list))
+
 
     def __create_object_map(self, objects: list[Union[ImageFile, LabelFile]]) -> dict:
         files = {}
@@ -230,7 +233,7 @@ class SDSSDataProvider:
             self.alignment_service = self.__create_alignment_service()
 
         try:
-            return self.alignment_service.align(self.__data_as_list[item][0], self.__data_as_list[item][1])
+            return self.alignment_service.align(self.__indexed_data[item][0], self.__indexed_data[item][1])
         except (OSError, EOFError):
             image_obj = ImageFile.from_str(self.__data_as_list[item][0][0])
             logger.warning(

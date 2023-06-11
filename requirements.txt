@@ -5,6 +5,6 @@ tqdm
 bs4
 lxml
 scikit-learn
-tqdm
-bs4
-lxml
+jupyter
+matplotlib
+lightning

@@ -121,6 +121,7 @@ class SDSSDataProvider:
         self.__label_files = {}
 
         self.__data_as_list: list[tuple[list[str], list[str]]] = []
+        self.__indexed_data: dict[int, tuple[list[str], list[str]]] = {}
 
         self.__fixed_validation_files = self.__downloader.download_exact(
             run=SDSSDataProvider.FIXED_VALIDATION_RUN, camcol=SDSSDataProvider.FIXED_VALIDATION_CAMCOL, field=SDSSDataProvider.FIXED_VALIDATION_FIELD)
@@ -235,7 +236,7 @@ class SDSSDataProvider:
         try:
             return self.alignment_service.align(self.__indexed_data[item][0], self.__indexed_data[item][1])
         except (OSError, EOFError):
-            image_obj = ImageFile.from_str(self.__data_as_list[item][0][0])
+            image_obj = ImageFile.from_str(self.__indexed_data[item][0][0])
             logger.warning(
                 f"Skipping {image_obj.run}, {image_obj.camcol} {image_obj.field}")
             return None, None

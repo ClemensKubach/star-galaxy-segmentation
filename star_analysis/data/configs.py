@@ -8,7 +8,7 @@ from star_analysis.utils.constants import DATAFILES_ROOT
 @dataclass
 class SdssDatasetConfig:
     data_dir: str = DATAFILES_ROOT
-    patch_shape: tuple[int, int] | None = (32, 32)
+    patch_shape: tuple[int, int] | None = (224, 224)
     prepare: bool = False
     run: str = SDSSDataProvider.FIXED_VALIDATION_RUN
     transform: Any = None

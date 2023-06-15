@@ -243,7 +243,7 @@ class SDSSDataProvider:
 
         return self.alignment_service.align(self.__fixed_validation_files[0], self.__fixed_validation_files[1])
 
-    def __getitem__(self, item) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    def __getitem__(self, item) -> tuple[np.ndarray, np.ndarray] | None:
         if self.alignment_service is None:
             self.alignment_service = self.__create_alignment_service()
 
@@ -253,7 +253,7 @@ class SDSSDataProvider:
             image_obj = ImageFile.from_str(self.__indexed_data[item][0][0])
             logger.warning(
                 f"Skipping {image_obj.run}, {image_obj.camcol} {image_obj.field}")
-            return None, None
+            return None
 
     def __next__(self) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         if self.alignment_service is None:

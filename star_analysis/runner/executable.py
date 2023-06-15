@@ -2,6 +2,7 @@ from abc import abstractmethod, ABC
 
 from lightning import LightningModule, LightningDataModule
 from lightning.pytorch.loggers import TensorBoardLogger
+from torch.utils.data import DataLoader
 
 from star_analysis.model.types import ModelTypes
 from star_analysis.utils.constants import LOGGING_DIR
@@ -76,9 +77,9 @@ class Executable(ABC):
         raise NotImplementedError(f"Train not implemented")
 
     @abstractmethod
-    def eval(self):
-        raise NotImplementedError(f"Eval not implemented")
+    def test(self):
+        raise NotImplementedError(f"Test not implemented")
 
     @abstractmethod
-    def predict(self):
+    def predict(self, data_loader: DataLoader):
         raise NotImplementedError(f"Predict not implemented")

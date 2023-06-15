@@ -1,8 +1,11 @@
 from typing import Any
 
 from lightning import LightningDataModule, Trainer
+from torch.utils.data import DataLoader
 
+from star_analysis.data.configs import SdssDatasetConfig, SdssDataModuleConfig
 from star_analysis.data.datamodules import SdssDataModule
+from star_analysis.dataprovider.sdss_dataprovider import SDSSDataProvider
 from star_analysis.model.types import ModelTypes
 from star_analysis.runner.executable import Executable
 from star_analysis.utils.constants import CHECKPOINT_DIR
@@ -18,13 +21,12 @@ class SdssRunner(Executable):
             batch_size: int = 32,
             learning_rate_init: float = 1e-3,
 
-            full_sequences: bool = False,
-            use_ground_truth_target: bool = False,
             transform: Any = None,
             target_transform: Any = None,
-            shuffle_train: bool = False,
+            shuffle_train: bool = True,
             train_size: float = 0.8,
-            val_size: float = 0.1
+            workers: int = 1,
+            patch_size: int = 224,
     ):
         super().__init__(
             data_dir=data_dir,
@@ -33,23 +35,26 @@ class SdssRunner(Executable):
             batch_size=batch_size,
             learning_rate_init=learning_rate_init
         )
-        self.full_sequences = full_sequences
-        self.use_ground_truth_target = use_ground_truth_target
-        self.transform = transform
-        self.target_transform = target_transform
-        self.shuffle_train = shuffle_train
-        self.train_size = train_size
-        self.val_size = val_size
+        dataset_config = SdssDatasetConfig(
+            data_dir=self.data_dir,
+            patch_shape=(patch_size, patch_size),
+            prepare=False,
+            run=SDSSDataProvider.FIXED_VALIDATION_RUN,
+            transform=transform,
+            target_transform=target_transform
+        )
+        self.module_config = SdssDataModuleConfig(
+            dataset_config=dataset_config,
+            batch_size=self.batch_size,
+            shuffle_train=shuffle_train,
+            train_size=train_size,
+            val_size=1-train_size,
+            num_workers=workers
+        )
+        self.trainer = None
 
     def _setup_data(self) -> LightningDataModule:
-        datamodule = SdssDataModule(
-            dataset=dataset,
-            batch_size=self.batch_size,
-            shuffle_train=self.shuffle_train,
-            train_size=self.train_size,
-            val_size=self.val_size
-        )
-        return datamodule
+        return SdssDataModule(self.module_config)
 
     def train(
             self,
@@ -57,22 +62,29 @@ class SdssRunner(Executable):
             limit_train_batches=200,
             limit_val_batches=100,
     ):
-        trainer = Trainer(
+        self.trainer = Trainer(
             max_epochs=max_epochs,
             logger=self.logger,
             num_nodes=-1,
             limit_train_batches=limit_train_batches,
             limit_val_batches=limit_val_batches,
+            enable_checkpointing=True,
             callbacks=None,  # [early_stopping]
             default_root_dir=CHECKPOINT_DIR
         )
-        trainer.fit(
+        self.trainer.fit(
             model=self.model,
             datamodule=self.data_module
         )
 
-    def eval(self):
-        super().eval()
+    def test(self):
+        self.trainer.test(
+            ckpt_path="best"
+        )
 
-    def predict(self):
-        super().predict()
+    def predict(self, data_loader: DataLoader):
+        self.trainer.predict(
+            model=self.model,
+            dataloaders=data_loader
+        )
+

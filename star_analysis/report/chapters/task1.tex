@@ -4,29 +4,34 @@ For all our experiments we used the images of run \emph{8162}.
 
 \begin{figure}
     \begin{minted}[linenos]{python3}
-def align_image(self, reference: Union[PrimaryHDU, Cutout2D],
-                other: PrimaryHDU) -> tuple[Cutout2D, Cutout2D]:
-    reference_wcs = WCS(reference.header) if not isinstance(reference,
-    Cutout2D) else reference.wcs
-    other_wcs = WCS(other.header)
+def __align_image(self, reference: Union[PrimaryHDU, Cutout2D], other: PrimaryHDU, size: Optional[tuple] = None) -> tuple[Cutout2D, Cutout2D]:
+    reference_wcs = (WCS(reference.header)
+                        if not isinstance(reference, Cutout2D)
+                        else reference.wcs)
+    other_wcs = (WCS(other.header)
+                    if not isinstance(other, Cutout2D)
+                    else other.wcs)
 
     reference_coords = SkyCoord(
-        ra=reference_wcs.wcs.crval[0]*u.deg, dec=reference_wcs.wcs.crval[1]*u.deg)
+        ra=reference_wcs.wcs.crval[0]*u.deg,
+        dec=reference_wcs.wcs.crval[1]*u.deg)
     other_coords = SkyCoord(
         ra=other_wcs.wcs.crval[0]*u.deg, dec=other_wcs.wcs.crval[1]*u.deg)
-            
+
     cutout_1 = Cutout2D(reference.data, other_coords,
-    size=reference.data.shape, wcs=reference_wcs)
+                        size=reference.data.shape if size is None else size, wcs=reference_wcs,
+                        mode='partial', fill_value=0)
     cutout_2 = Cutout2D(other.data, reference_coords,
-    size=reference.data.shape, wcs=other_wcs)
-            
+                        size=reference.data.shape if size is None else size, wcs=other_wcs,
+                        mode='partial', fill_value=0)
+
     return cutout_1, cutout_2
         \end{minted}
     \label{alignementCode}
     \caption{The code we use to align an image pair}
 \end{figure}
 
-Alignement of the data is handled by the \emph{AlignementService}. In particular, the code seen in \Cref{alignementCode} handles the adjusting of two images. We then loop over all spectral band and get the corresponding cutouts for each one in reference to the first cutout. This results in a nicely aligned multichannel image.
+Alignement of the data is handled by the \emph{AlignementService}. In particular, the code seen in \Cref{alignementCode} handles the adjusting of two images. We then loop over all spectral bands and get the corresponding cutouts in reference to the first image. This results in a nicely aligned multichannel image.
 
 The same \emph{AlignementService} also handles the label transcription from the fits format to the desired format. This is done because we need the WCS reference of the aligned cutouts to correctly calculate the pixel coordinates for each object.
 We round the resulting coordinates to get one exact location in the image.
@@ -61,6 +66,7 @@ In \Cref{alignedImages} the aligned spectral bands can be seen. In the second im
             \hline
         \end{tabularx}
     \end{table}
+    \caption{Table containing the means and variances of our dataset}
     \label[type]{moments}
 \end{figure}
 We looked at the data quite extensively prior to classifying. Especially, we calculated mean and variance for the different color channels and with and without considering classes. The results can be seen in \Cref{moments}.

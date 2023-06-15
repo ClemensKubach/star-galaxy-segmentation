@@ -268,5 +268,14 @@ class SDSSDataProvider:
                     f"Skipping {image_obj.run}, {image_obj.camcol} {image_obj.field}")
                 return None, None
 
+    def get_label_files(self) -> tuple[list[str]]:
+        data = [set() for _ in range(len(self.__data_as_list[0][1]))]
+
+        for _, labels in self.__data_as_list:
+            for i, file in enumerate(labels):
+                data[i].add(file)
+
+        return tuple(data)
+
     def __len__(self) -> int:
         return len(self.__data_as_list)

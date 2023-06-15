@@ -91,7 +91,7 @@ class XGBModel(BaseModel):
 
         labels_dense = labels.nonzero()[1]
         statistics = XGBTrainingStatistics(accuracy=accuracy_score(labels_dense, predictions), precision=precision_score(
-            labels_dense, predictions), recall=recall_score(labels_dense, predictions), time=datetime.now() - start_time)
+            labels_dense, predictions, average='macro'), recall=recall_score(labels_dense, predictions, average='macro'), time=datetime.now() - start_time)
 
         return statistics
 

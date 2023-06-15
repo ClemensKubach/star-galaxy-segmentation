@@ -28,5 +28,4 @@ class SdssDataModuleConfig:
     batch_size: int = 32
     shuffle_train: bool = True
     train_size: float = 0.8
-    val_size: float = 0.1
     num_workers: int = 1

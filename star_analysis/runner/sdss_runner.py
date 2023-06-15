@@ -48,7 +48,6 @@ class SdssRunner(Executable):
             batch_size=self.batch_size,
             shuffle_train=shuffle_train,
             train_size=train_size,
-            val_size=1-train_size,
             num_workers=workers
         )
         self.trainer = None

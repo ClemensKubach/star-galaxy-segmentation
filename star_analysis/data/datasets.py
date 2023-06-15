@@ -60,6 +60,9 @@ class Sdss(data.Dataset):
         patch_idx = idx % self.num_patches_per_field
 
         field = self.provider[field_idx]
+        if field is None:
+            raise ValueError(f"Field with index {field_idx} is None.")
+
         patch_x, patch_y = self._get_patch(field, patch_idx)
         patch_x, patch_y = Tensor(patch_x), Tensor(patch_y)
         if self.config.transform:

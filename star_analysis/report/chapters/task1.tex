@@ -1,0 +1,85 @@
+\section{Data Acquisition}
+To download the data, we implemented the class \emph{ImageDownloader}. It automatically loads all fits files or only the ones of one run.
+For all our experiments we used the images of run \emph{8162}.
+
+\begin{figure}
+    \begin{minted}[linenos]{python3}
+def align_image(self, reference: Union[PrimaryHDU, Cutout2D],
+                other: PrimaryHDU) -> tuple[Cutout2D, Cutout2D]:
+    reference_wcs = WCS(reference.header) if not isinstance(reference,
+    Cutout2D) else reference.wcs
+    other_wcs = WCS(other.header)
+
+    reference_coords = SkyCoord(
+        ra=reference_wcs.wcs.crval[0]*u.deg, dec=reference_wcs.wcs.crval[1]*u.deg)
+    other_coords = SkyCoord(
+        ra=other_wcs.wcs.crval[0]*u.deg, dec=other_wcs.wcs.crval[1]*u.deg)
+            
+    cutout_1 = Cutout2D(reference.data, other_coords,
+    size=reference.data.shape, wcs=reference_wcs)
+    cutout_2 = Cutout2D(other.data, reference_coords,
+    size=reference.data.shape, wcs=other_wcs)
+            
+    return cutout_1, cutout_2
+        \end{minted}
+    \label{alignementCode}
+    \caption{The code we use to align an image pair}
+\end{figure}
+
+Alignement of the data is handled by the \emph{AlignementService}. In particular, the code seen in \Cref{alignementCode} handles the adjusting of two images. We then loop over all spectral band and get the corresponding cutouts for each one in reference to the first cutout. This results in a nicely aligned multichannel image.
+
+The same \emph{AlignementService} also handles the label transcription from the fits format to the desired format. This is done because we need the WCS reference of the aligned cutouts to correctly calculate the pixel coordinates for each object.
+We round the resulting coordinates to get one exact location in the image.
+
+\begin{figure}
+    \includegraphics[width=\textwidth / 2]{aligned_validation_frame.png}
+    \includegraphics[width=\textwidth / 2]{aligned_validation_frame_with_labels.png}
+    \caption{Aligned images with and without class markers}
+    \label{alignedImages}
+\end{figure}
+
+In \Cref{alignedImages} the aligned spectral bands can be seen. In the second image, the dots indicate a labeled star or galaxy.
+
+\section{Data Statistics}
+\begin{figure}
+    \begin{table}[H]
+        \begin{tabularx}{\textwidth}{mmmmmm}
+            \hline
+                              & G          & R          & I          & U          & Z          \\
+            \hline
+            mean              & 0.01831526 & 0.06806776 & 0.03508206 & 0.00999219 & 0.09221864 \\
+            \hline
+            variance          & 0.63541394 & 1.1390159  & 0.84219295 & 0.7349062  & 3.5991151  \\
+            \hline
+            mean galaxies     & 0.3555972  & 0.78794575 & 0.24694313 & 0.4785072  & 1.444005   \\
+            \hline
+            mean stars        & 1.7689778  & 4.419688   & 0.21848623 & 0.4850497  & 1.337152   \\
+            \hline
+            variance galaxies & 1.9958429  & 2.9823391  & 1.3213041  & 3.800948   & 10.370228  \\
+            \hline
+            variance stars    & 7.0836196  & 13.191349  & 1.1656493  & 4.0983696  & 7.9592648  \\
+            \hline
+        \end{tabularx}
+    \end{table}
+    \label[type]{moments}
+\end{figure}
+We looked at the data quite extensively prior to classifying. Especially, we calculated mean and variance for the different color channels and with and without considering classes. The results can be seen in \Cref{moments}.
+The variances of channel R and Z differ very much from the other ones. The large variance of the infrared channel Z could be related to redshift.
+
+
+\begin{figure}
+    \includegraphics[width=\textwidth / 2]{Galaxies.png}
+    \includegraphics[width=\textwidth / 2]{Stars.png}
+    \caption{Spatial distribution of the galaxies and starts in equatorial coordinates}
+    \label{distributionPlots}
+\end{figure}
+Furthermore, we look at the spacial distribution of the classes. To do so, we plotted them in equatorial coordinates in \Cref{distributionPlots}. The blind spot in the middle the the proprietary evaluation field. The six distinct stripes are a result of the imaging technique. We do not see a difference in the spacial distribution of the two classes. The differences between the classes are minor.
+
+Additionally to the spacial distribution, we calculated the number of samples per class. We got 287404 galaxies and  538043 stars in our whole dataset. These numbers are without the stated field in task 1.2.
+
+\begin{figure}
+    \includegraphics[width=\textwidth / 2]{color_correlation.png}
+    \caption[short]{Correlation of the different color channels}
+    \label{colorCorr}
+\end{figure}
+We also had a look at the correlation between the colors channels. These were very low. Some channels are not even correlated with themselves. All results can be seen in \Cref{colorCorr}.

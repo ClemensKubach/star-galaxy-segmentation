@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Optional
 from astropy.io import fits
 from astropy.io.fits import HDUList, PrimaryHDU, BinTableHDU
 import numpy as np
@@ -26,25 +26,30 @@ class AlignmentService:
     def __load_files(self, files: list[Union[str, HDUList]]) -> list[HDUList]:
         return [(fits.open(file) if isinstance(file, str) else file) for file in files]
 
+    def __do_alignement(self, hdu_frames: list[HDUList], size: Optional[tuple] = None) -> list[Cutout2D]:
+        results = [hdu_frames[0][0]]
+
+        for i, other in enumerate(hdu_frames[1:]):
+            _, other_cutout = self.__align_image(
+                results[0], other[0], size=size)
+
+            results.append(other_cutout)
+
+        return results
+
     def align(self, files: list[Union[str, HDUList]], labels: list[Union[str, HDUList]]) -> tuple[np.ndarray, np.ndarray]:
         hdu_frames = self.__load_files(files)
         label_frames = [tables[1] for tables in self.__load_files(
             labels)
         ]
 
-        results = [hdu_frames[0][0]]
-        for other in hdu_frames[1:]:
-            ref, other_cutout = self.__align_image(results[0], other[0])
-            if len(results) == 1:
-                results[0] = ref
-            results.append(other_cutout)
+        cutouts = self.__do_alignement(hdu_frames)
 
-        min_dims = np.min([result.shape for result in results], axis=0)
         stacked_image = np.stack(
-            [cutout_frame.data[:min_dims[0], :min_dims[1]] for cutout_frame in results]).T
+            [cutout_frame.data for cutout_frame in cutouts]).T
 
         label_map = self.__create_label_map(
-            results[0].wcs, hdu_frames[0][3], label_frames, stacked_image.shape[:-1])
+            WCS(cutouts[0]), hdu_frames[0][3], label_frames, stacked_image.shape[:-1])
 
         return stacked_image, label_map
 
@@ -57,10 +62,13 @@ class AlignmentService:
 
         return vectors
 
-    def __align_image(self, reference: Union[PrimaryHDU, Cutout2D], other: PrimaryHDU) -> tuple[Cutout2D, Cutout2D]:
-        reference_wcs = WCS(reference.header) if not isinstance(reference,
-                                                                Cutout2D) else reference.wcs
-        other_wcs = WCS(other.header)
+    def __align_image(self, reference: Union[PrimaryHDU, Cutout2D], other: PrimaryHDU, size: Optional[tuple] = None) -> tuple[Cutout2D, Cutout2D]:
+        reference_wcs = (WCS(reference.header)
+                         if not isinstance(reference, Cutout2D)
+                         else reference.wcs)
+        other_wcs = (WCS(other.header)
+                     if not isinstance(other, Cutout2D)
+                     else other.wcs)
 
         reference_coords = SkyCoord(
             ra=reference_wcs.wcs.crval[0]*u.deg, dec=reference_wcs.wcs.crval[1]*u.deg)
@@ -68,9 +76,11 @@ class AlignmentService:
             ra=other_wcs.wcs.crval[0]*u.deg, dec=other_wcs.wcs.crval[1]*u.deg)
 
         cutout_1 = Cutout2D(reference.data, other_coords,
-                            size=reference.data.shape, wcs=reference_wcs)
+                            size=reference.data.shape if size is None else size, wcs=reference_wcs,
+                            mode='partial', fill_value=0)
         cutout_2 = Cutout2D(other.data, reference_coords,
-                            size=reference.data.shape, wcs=other_wcs)
+                            size=reference.data.shape if size is None else size, wcs=other_wcs,
+                            mode='partial', fill_value=0)
 
         return cutout_1, cutout_2
 

@@ -52,7 +52,7 @@ class ImageFile:
             if self.field > other.field:
                 return True
 
-            return self.spectrum < other.spectrum
+            return self.spectrum > other.spectrum
 
         return super().__gt__(other)
 
@@ -225,7 +225,7 @@ class SDSSDataProvider:
 
         return self.alignment_service.align(self.__fixed_validation_files[0], self.__fixed_validation_files[1])
 
-    def __getitem__(self, item) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    def __getitem__(self, item: int) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         if self.alignment_service is None:
             self.alignment_service = self.__create_alignment_service()
 

@@ -21,13 +21,12 @@ class SdssDatasetConfig:
 class SdssDataModuleConfig:
     """Config for the SdssDataModule.
 
-    Args:
-        dataset_config (SdssDatasetConfig): Config for the Sdss dataset. include_train_set and include_test_set are
-        handled by the SdssDataModule. Thus, they are ignored here.
+    dataset_config (SdssDatasetConfig): Config for the Sdss dataset. include_train_set and include_test_set are
+    handled by the SdssDataModule. Thus, they are ignored here.
     """
     dataset_config: SdssDatasetConfig
-    batch_size = 32
-    shuffle_train = True
-    train_size = 0.8
-    val_size = 0.1
-    num_workers = 1
+    batch_size: int = 32
+    shuffle_train: bool = True
+    train_size: float = 0.8
+    val_size: float = 0.1
+    num_workers: int = 1

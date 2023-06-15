@@ -16,8 +16,8 @@ class StatisticsService:
 
     def get_channel_mean_variance(self, calculate: bool = False) -> tuple[np.ndarray, np.ndarray]:
         if not calculate:
-            return (np.array([0.01831526, 0.06806776, 0.03508206, 0.00999219, 0.09221864]),
-                    np.array([0.63541394, 1.1390159, 0.84219295, 0.7349062, 3.5991151]))
+            return (np.array([0.01829018, 0.06763462, 0.03478437, 0.00994593, 0.09194765]),
+                    np.array([0.6351227, 1.1362617, 0.8386613, 0.7339489, 3.5971174]))
 
         results = process_map(self._get_image_mean_std,
                               range(len(self.__data_provider)))
@@ -58,16 +58,16 @@ class StatisticsService:
 
     def get_color_correlation(self, calculate: bool = False) -> np.ndarray:
         if not calculate:
-            return np.array([[1.64213383e+00, 3.98713894e-03, 1.59239000e-02, 6.90654871e-03,
-                              6.71242042e-04],
-                             [3.98713894e-03, 5.19692494e-01, 2.18571724e-02, 5.55899891e-03,
-                              4.81904216e-04],
-                             [1.59239000e-02, 2.18571724e-02, 1.07855631e+01, 5.69401040e-02,
-                              2.29937496e-03],
-                             [6.90654871e-03, 5.55899891e-03, 5.69401040e-02, 5.06676116e+00,
-                              1.18142112e-03],
-                             [6.71242042e-04, 4.81904216e-04, 2.29937496e-03, 1.18142112e-03,
-                              7.43233091e-02]])
+            return np.array([[7.15842715e+00, -2.07836431e-04, -3.29048687e-02,
+                              -1.76674393e-03, -1.06130019e-04],
+                             [-2.07836431e-04,  2.10465748e+00, -2.87848587e-02,
+                              -2.29227106e-03, -2.14289441e-04],
+                             [-3.29048687e-02, -2.87848587e-02,  4.79155673e+01,
+                              -1.72814254e-02, -2.27799290e-03],
+                             [-1.76674393e-03, -2.29227106e-03, -1.72814254e-02,
+                              6.05526334e+00, -1.17788174e-04],
+                             [-1.06130019e-04, -2.14289441e-04, -2.27799290e-03,
+                              -1.17788174e-04,  2.55142858e-01]])
 
         results = process_map(self._get_covariance,
                               range(len(self.__data_provider)))
@@ -123,7 +123,10 @@ class StatisticsService:
 
     def get_distribution_per_class(self, calculate: bool = False) -> tuple[np.ndarray, np.ndarray]:
         if not calculate:
-            return []
+            return (np.array([[0.3555972, 0.66457057, 0.41107112, 0.5257245, 1.7446687],
+                              [1.7689778, 2.3413954, 1.8904239, 0.7942855, 4.4665427]]),
+                    np.array([[1.9958429,  2.7264001,  1.9724108,  4.534722, 11.216864],
+                              [7.0836196,  7.499741,  6.6610627,  6.519651, 21.924402]]))
 
         results = process_map(self._get_mean_std_per_class,
                               range(len(self.__data_provider)))

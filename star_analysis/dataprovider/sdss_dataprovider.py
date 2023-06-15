@@ -113,9 +113,17 @@ class SDSSDataProvider:
     FIXED_VALIDATION_CAMCOL = "6"
     FIXED_VALIDATION_RUN = "8162"
 
-    def __init__(self, downloader: ImageDownloader = ImageDownloader(os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'data')), alignment_service: Optional[AlignmentService] = None):
+    def __init__(
+            self,
+            downloader: ImageDownloader = ImageDownloader(os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'data')),
+            alignment_service: Optional[AlignmentService] = None,
+            include_train_set: bool = True,
+            include_test_set: bool = False
+    ):
         self.__downloader = downloader
         self.alignment_service = alignment_service
+        self.include_train_set = include_train_set
+        self.include_test_set = include_test_set
 
         self.__data_files = {}
         self.__label_files = {}
@@ -124,7 +132,10 @@ class SDSSDataProvider:
         self.__indexed_data: dict[int, tuple[list[str], list[str]]] = {}
 
         self.__fixed_validation_files = self.__downloader.download_exact(
-            run=SDSSDataProvider.FIXED_VALIDATION_RUN, camcol=SDSSDataProvider.FIXED_VALIDATION_CAMCOL, field=SDSSDataProvider.FIXED_VALIDATION_FIELD)
+            run=SDSSDataProvider.FIXED_VALIDATION_RUN,
+            camcol=SDSSDataProvider.FIXED_VALIDATION_CAMCOL,
+            field=SDSSDataProvider.FIXED_VALIDATION_FIELD
+        )
 
     @property
     def runs(self) -> list[str]:
@@ -175,8 +186,11 @@ class SDSSDataProvider:
             for camcol, camcol_data in run_data.items():
                 for field, field_data in camcol_data.items():
                     if field == SDSSDataProvider.FIXED_VALIDATION_FIELD and camcol == SDSSDataProvider.FIXED_VALIDATION_CAMCOL and run == SDSSDataProvider.FIXED_VALIDATION_FIELD:
-                        continue
-
+                        if not self.include_test_set:
+                            continue
+                    else:
+                        if not self.include_train_set:
+                            continue
                     self.__data_as_list.append(
                         (field_data, self.__label_files[run][camcol])
                     )

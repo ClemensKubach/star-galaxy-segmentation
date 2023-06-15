@@ -21,7 +21,9 @@ class Sdss(data.Dataset):
         self.inner_padding = INNER_IMAGE_PADDING
 
         self.provider = SDSSDataProvider(
-            downloader=ImageDownloader(config.data_dir, max_workers=os.cpu_count())
+            downloader=ImageDownloader(config.data_dir, max_workers=os.cpu_count()),
+            include_train_set=config.include_train_set,
+            include_test_set=config.include_test_set,
         )
         if config.prepare:
             self.prepare()

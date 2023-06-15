@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader, random_split
 
@@ -16,25 +18,37 @@ class SdssDataModule(LightningDataModule):
 
         self.config = config
 
-        self.full_dataset = Sdss(config.dataset_config)
+        self.full_train_dataset = Sdss(
+            replace(
+                config.dataset_config,
+                include_train_set=True,
+                include_test_set=False
+            )
+        )
         self.train_dataset = None
         self.val_dataset = None
-        self.test_dataset = None
+        self.test_dataset = Sdss(
+            replace(
+                config.dataset_config,
+                include_train_set=False,
+                include_test_set=True
+            )
+        )
 
     def prepare_data(self):
-        self.full_dataset.prepare()
+        self.full_train_dataset.prepare()
+        self.test_dataset.prepare()
 
     def setup(self, stage):
-        num_train = int(len(self.full_dataset) * self.config.train_size)
-        num_val = len(self.full_dataset) - num_train
+        num_train = int(len(self.full_train_dataset) * self.config.train_size)
+        num_val = len(self.full_train_dataset) - num_train
         self.train_dataset, self.val_dataset = random_split(
-            self.full_dataset,
+            self.full_train_dataset,
             [
                 num_train,
                 num_val
             ],
         )
-        # TODO setup test dataset and create test for similiarity check of distributions
 
     def train_dataloader(self):
         return DataLoader(

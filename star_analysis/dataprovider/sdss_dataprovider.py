@@ -3,6 +3,9 @@ from dataclasses import dataclass
 import os
 import pathlib
 from typing import Optional, Union
+
+from tqdm import tqdm
+
 from star_analysis.service.alignment import AlignmentService
 from astropy.io import fits
 import logging
@@ -28,7 +31,7 @@ class ImageFile:
 
         return cls(spectrum=data[0], run=data[1], camcol=data[2], field=data[3], fullname=name)
 
-    def get_keys(self) -> tuple[str]:
+    def get_keys(self) -> tuple[str, str, str]:
         return self.run, self.camcol, self.field
 
     def __lt__(self, other) -> bool:
@@ -77,7 +80,7 @@ class LabelFile:
 
         return cls(run=data[0], camcol=data[1], type_=data[2], fullname=name)
 
-    def get_keys(self) -> tuple[str]:
+    def get_keys(self) -> tuple[str, str]:
         return self.run, self.camcol
 
     def __lt__(self, other) -> bool:
@@ -113,19 +116,23 @@ class SDSSDataProvider:
     FIXED_VALIDATION_FIELD = "0080"
     FIXED_VALIDATION_CAMCOL = "6"
     FIXED_VALIDATION_RUN = "8162"
-    SINGLETON_DOWNLOADER = ImageDownloader(DATAFILES_ROOT, max_workers=os.cpu_count())
+    SINGLETON_DOWNLOADER = ImageDownloader(DATAFILES_ROOT, max_workers=os.cpu_count(), run=FIXED_VALIDATION_RUN)
 
     def __init__(
             self,
             downloader: ImageDownloader | None = None,
             alignment_service: Optional[AlignmentService] = None,
             include_train_set: bool = True,
-            include_test_set: bool = False
+            include_test_set: bool = False,
+            force_realign: bool = False,
+            save_new_alignments: bool = True,
     ):
         self.__downloader = downloader if downloader else SDSSDataProvider.SINGLETON_DOWNLOADER
         self.alignment_service = alignment_service
         self.include_train_set = include_train_set
         self.include_test_set = include_test_set
+        self.force_realign = force_realign
+        self.save_new_alignments = save_new_alignments
 
         self.__data_files = {}
         self.__label_files = {}
@@ -153,7 +160,8 @@ class SDSSDataProvider:
     @property
     def fields(self) -> list[str]:
         frame_seqs = {
-            frame_seq for run in self.runs for camcol in self.__data_files[run] for frame_seq in self.__data_files[run][camcol]
+            frame_seq for run in self.runs for camcol in self.__data_files[run] for frame_seq in
+            self.__data_files[run][camcol]
         }
         return list(frame_seqs)
 
@@ -171,9 +179,9 @@ class SDSSDataProvider:
 
         self.__group_files(data_files, label_files)
 
-    def prepare_exact(self, run: str, camcol: str, field: str):
+    def prepare_exact(self, run: str, camcol: str, field: str, force_download: bool = False):
         data_files, label_files = self.__downloader.download_exact(
-            run=run, camcol=camcol, field=field)
+            run=run, camcol=camcol, field=field, force=force_download)
 
         self.__group_files(data_files, label_files)
 
@@ -197,7 +205,6 @@ class SDSSDataProvider:
                         (field_data, self.__label_files[run][camcol])
                     )
         self.__indexed_data = dict(enumerate(self.__data_as_list))
-
 
     def __create_object_map(self, objects: list[Union[ImageFile, LabelFile]]) -> dict:
         files = {}
@@ -233,42 +240,91 @@ class SDSSDataProvider:
 
         return self.alignment_service
 
-    def get_aligned(self, run: str, camcol: str, field: str) -> np.ndarray:
-        if self.alignment_service is None:
-            self.alignment_service = self.__create_alignment_service()
+    def repair(self, run: Optional[str] = None):
+        def __do_repair(index: int, force_realign: bool):
+            image_obj = ImageFile.from_str(self.__indexed_data[index][0][0])
+            self.__downloader.download_exact(
+                run=image_obj.run.lstrip("0"),
+                camcol=image_obj.camcol,
+                field=image_obj.field,
+                force=True
+            )
+            self.force_realign = True
+            _x, _y = self._get_aligned_by_data_index(index)
+            if _x is None or _y is None:
+                raise ValueError("Could not repair files. x or y is None.")
+            else:
+                logger.info(f"Successfully repaired files for run {image_obj.run}, camcol {image_obj.camcol}, field {image_obj.field}.")
+            self.force_realign = force_realign
 
-        return self.alignment_service.align(self.__data_files[run][camcol][field], self.__label_files[run][camcol])
+        def __handle_repair_error(index: int, ex: Exception):
+            image_obj = ImageFile.from_str(self.__indexed_data[index][0][0])
+            logger.warning(f"Unexpected error occurred while repairing files for run {image_obj.run}, camcol {image_obj.camcol}, field {image_obj.field}. Skipping.")
+            logger.warning(ex)
+
+        self.prepare(run=run)
+        for idx in tqdm(range(len(self.__indexed_data))):
+            try:
+                x, y = self._get_aligned_by_data_index(idx)
+                assert x is not None and y is not None
+            except OSError or EOFError or AssertionError:
+                try:
+                    __do_repair(idx, self.force_realign)
+                except Exception as e:
+                    __handle_repair_error(idx, e)
+            except Exception as e:
+                __handle_repair_error(idx, e)
+
+    def _get_aligned(self, run: str, camcol: str, field: str) -> tuple[np.ndarray, np.ndarray]:
+        aligned_path = os.path.join(DATAFILES_ROOT, 'aligned')
+        if not os.path.exists(aligned_path):
+            os.makedirs(aligned_path)
+        x_filepath = os.path.join(aligned_path, f"aligned_{run}-{camcol}-{field}_x.npy")
+        y_filepath = os.path.join(aligned_path, f"aligned_{run}-{camcol}-{field}_y.npy")
+
+        x_aligned_file = pathlib.Path(x_filepath)
+        y_aligned_file = pathlib.Path(y_filepath)
+
+        if self.force_realign or not x_aligned_file.exists() or not y_aligned_file.exists():
+            if self.alignment_service is None:
+                self.alignment_service = self.__create_alignment_service()
+
+            x, y = self.alignment_service.align(self.__data_files[run][camcol][field], self.__label_files[run][camcol])
+            if self.save_new_alignments:
+                np.save(x_filepath, x)
+                np.save(y_filepath, y)
+        else:
+            x = np.load(x_filepath, mmap_mode='r')
+            y = np.load(y_filepath, mmap_mode='r')
+        return x, y
+
+    def _get_aligned_by_data_index(self, index: int) -> tuple[np.ndarray, np.ndarray]:
+        i = ImageFile.from_str(self.__indexed_data[index][0][0])
+        return self._get_aligned(i.run, i.camcol, i.field)
 
     def get_provided_validation_set(self) -> tuple[np.ndarray, np.ndarray]:
-        if self.alignment_service is None:
-            self.alignment_service = self.__create_alignment_service()
-
-        return self.alignment_service.align(self.__fixed_validation_files[0], self.__fixed_validation_files[1])
+        i = ImageFile.from_str(self.__fixed_validation_files[0][0])
+        return self._get_aligned(i.run, i.camcol, i.field)
 
     def __getitem__(self, item: int) -> tuple[np.ndarray, np.ndarray] | None:
-        if self.alignment_service is None:
-            self.alignment_service = self.__create_alignment_service()
-
         try:
-            return self.alignment_service.align(self.__indexed_data[item][0], self.__indexed_data[item][1])
-        except (OSError, EOFError):
+            return self._get_aligned_by_data_index(item)
+        except Exception as e:
             image_obj = ImageFile.from_str(self.__indexed_data[item][0][0])
+            logger.debug(e)
             logger.warning(
                 f"Skipping {image_obj.run}, {image_obj.camcol} {image_obj.field}")
             return None
 
-    def __next__(self) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
-        if self.alignment_service is None:
-            self.alignment_service = self.__create_alignment_service()
-
-        for images, labels in self.__data_as_list:
+    def __next__(self) -> tuple[np.ndarray, np.ndarray] | None:
+        for idx, images, labels in enumerate(self.__data_as_list):
             try:
-                yield self.alignment_service.align(images, labels)
+                yield self._get_aligned_by_data_index(idx)
             except (OSError, EOFError):
                 image_obj = ImageFile.from_str(images[0])
                 logger.warning(
                     f"Skipping {image_obj.run}, {image_obj.camcol} {image_obj.field}")
-                return None, None
+                return None
 
     def get_label_files(self) -> tuple[list[str]]:
         data = [set() for _ in range(len(self.__data_as_list[0][1]))]

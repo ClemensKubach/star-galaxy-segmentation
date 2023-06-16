@@ -1,5 +1,6 @@
 import unittest
 
+from torch import Tensor
 from tqdm import tqdm
 
 from star_analysis.data.configs import SdssDatasetConfig
@@ -29,11 +30,19 @@ class DatasetTestCase(unittest.TestCase):
 
     def test_completeness(self):
         """Takes a really long time. It only uses a single core here. Should be run only once."""
-        assert len(self.dataset) == 33180  # ((1568*1120)//(224*224)) * 6 * 158
-        for i in range(len(self.dataset))[:5]:
-            input_data, target = self.dataset[i]
+        size = self.dataset.cropped_image_shape[0] * self.dataset.cropped_image_shape[1]
+        patch_size = self.dataset.patch_shape[0] * self.dataset.patch_shape[1]
+        camcols = len(self.dataset.provider.camcols)
+        fields = len(self.dataset.provider.fields)
+
+        assert len(self.dataset) == size // patch_size * camcols * fields
+        for i in range(len(self.dataset)):
+            out = self.dataset[i]
+            assert out is not None
+            input_data, target = out
             assert input_data is not None
             assert target is not None
+            _, __ = Tensor(input_data), Tensor(target)
 
 
 if __name__ == '__main__':

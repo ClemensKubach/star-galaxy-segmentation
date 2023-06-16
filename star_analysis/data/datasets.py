@@ -25,7 +25,7 @@ class Sdss(data.Dataset):
             self.provider = provider
         else:
             if config.data_dir and config.data_dir != SDSSDataProvider.SINGLETON_DOWNLOADER.to:
-                downloader = ImageDownloader(config.data_dir, max_workers=os.cpu_count())
+                downloader = ImageDownloader(config.data_dir, max_workers=os.cpu_count(), run=config.run)
             else:
                 downloader = None
             self.provider = SDSSDataProvider(

@@ -15,3 +15,7 @@ def download_sdss_dataset(config: SdssDatasetConfig = None):
                 prepare=True
             )
         )
+
+
+if __name__ == '__main__':
+    download_sdss_dataset()

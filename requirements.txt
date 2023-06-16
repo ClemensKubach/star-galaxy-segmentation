@@ -10,3 +10,4 @@ jupyter
 matplotlib
 lightning
 StrEnum
+fire

@@ -3,18 +3,21 @@ from star_analysis.dataprovider.image_downloader import ImageDownloader
 from star_analysis.dataprovider.sdss_dataprovider import SDSSDataProvider
 import numpy as np
 from astropy.io import fits
+import seaborn as sns
+import pandas as pd
+import matplotlib.pyplot as plt
 
 
 class StatisticsService:
-    def __init__(self, run: str = "1000") -> None:
+    def __init__(self, run: str = SDSSDataProvider.FIXED_VALIDATION_RUN) -> None:
         self.__data_provider = SDSSDataProvider(
             ImageDownloader('/Users/leopinetzki/data'))
         self.__data_provider.prepare(run)
 
     def get_channel_mean_variance(self, calculate: bool = False) -> tuple[np.ndarray, np.ndarray]:
         if not calculate:
-            return (np.array([0.06806371, 0.20728613, 0.464, 0.01954113, 0.393049]),
-                    np.array([1.3366362, 2.3025422, 1.7791781, 0.80536276, 6.722137]))
+            return (np.array([0.01831526, 0.06806776, 0.03508206, 0.00999219, 0.09221864]),
+                    np.array([0.63541394, 1.1390159, 0.84219295, 0.7349062, 3.5991151]))
 
         results = process_map(self._get_image_mean_std,
                               range(len(self.__data_provider)))
@@ -31,7 +34,7 @@ class StatisticsService:
 
     def get_number_examples_per_class(self, calculate: bool = False) -> np.ndarray:
         if not calculate:
-            return np.array([155788, 1019846])
+            return np.array([287404, 538043])
 
         label_files = self.__data_provider.get_label_files()
 
@@ -55,22 +58,18 @@ class StatisticsService:
 
     def get_color_correlation(self, calculate: bool = False) -> np.ndarray:
         if not calculate:
-            covariance = np.array([[38.39584431,  2.17935757,  0.98275128,  0.98868845,  2.09980341],
-                                   [2.17935757, 81.56378697,  2.21487135,
-                                       0.94742019,  0.95599492],
-                                   [0.98275128,  2.21487135, 29.7828834,
-                                       2.01658154,  0.88864766],
-                                   [0.98868845,  0.94742019,  2.01658154,
-                                       52.01123953,  2.00083838],
-                                   [2.09980341,  0.95599492,  0.88864766,  2.00083838, 26.48450165]])
+            return np.array([[1.64213383e+00, 3.98713894e-03, 1.59239000e-02, 6.90654871e-03,
+                              6.71242042e-04],
+                             [3.98713894e-03, 5.19692494e-01, 2.18571724e-02, 5.55899891e-03,
+                              4.81904216e-04],
+                             [1.59239000e-02, 2.18571724e-02, 1.07855631e+01, 5.69401040e-02,
+                              2.29937496e-03],
+                             [6.90654871e-03, 5.55899891e-03, 5.69401040e-02, 5.06676116e+00,
+                              1.18142112e-03],
+                             [6.71242042e-04, 4.81904216e-04, 2.29937496e-03, 1.18142112e-03,
+                              7.43233091e-02]])
 
-            stds = self.get_channel_mean_variance()[1]
-            stds0 = np.repeat(stds[:, None], stds.shape[0], axis=-1)
-            stds1 = np.repeat(stds[None, :], stds.shape[0], axis=0)
-
-            return covariance / (stds0 * stds1)
-
-        results = process_map(self._get_correlation,
+        results = process_map(self._get_covariance,
                               range(len(self.__data_provider)))
 
         stds = self.get_channel_mean_variance()[1]
@@ -78,3 +77,55 @@ class StatisticsService:
         stds1 = np.repeat(stds[None, :], stds.shape[0], axis=0)
 
         return np.mean(results, axis=0) / (stds0 * stds1)
+
+    def __plot_class(self, data: np.ndarray, color: str, title: str):
+        sns.lmplot(x='ra', y='dec', data=data, palette=[color],
+                   scatter_kws={'s': 2}, fit_reg=False, height=4, aspect=2)
+        plt.ylabel('dec')
+        plt.xlabel('Equitorial coordinates')
+        plt.title(title)
+        plt.show()
+
+    def plot_class_distribution(self):
+        label_files = self.__data_provider.get_label_files()
+        label_fits = [[fits.open(file)[1] for file in label_class]
+                      for label_class in label_files]
+
+        coordinates_for_class = [[] for _ in range(len(label_files))]
+        for i, class_files in enumerate(label_fits):
+            for file in class_files:
+                coordinates_for_class[i].extend(
+                    zip(file.data['RA'], file.data['DEC']))
+
+        self.__plot_class(
+            pd.DataFrame(coordinates_for_class[0], columns=['ra', 'dec']), color='red', title="Galaxy")
+        self.__plot_class(
+            pd.DataFrame(coordinates_for_class[1], columns=['ra', 'dec']), color='blue', title="Star")
+
+    def _get_mean_std_per_class(self, id: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
+        image, labels = self.__data_provider[id]
+
+        if image is None:
+            return None, None
+
+        means = []
+        stds = []
+        for label_map in labels.T.astype(bool):
+            mean = np.mean(image[label_map.T], axis=0)
+            mean[np.isnan(mean)] = 0
+            means.append(mean)
+
+            var = np.std(image[label_map.T], axis=0)
+            var[np.isnan(var)] = 0
+            stds.append(var)
+
+        return means, stds
+
+    def get_distribution_per_class(self, calculate: bool = False) -> tuple[np.ndarray, np.ndarray]:
+        if not calculate:
+            return []
+
+        results = process_map(self._get_mean_std_per_class,
+                              range(len(self.__data_provider)))
+
+        return np.mean([i[0] for i in results if i[0] is not None], axis=0), np.mean([i[1] for i in results if i[1] is not None], axis=0)

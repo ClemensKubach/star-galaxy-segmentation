@@ -5,6 +5,7 @@ tqdm
 bs4
 lxml
 scikit-learn
+seaborn
 jupyter
 matplotlib
 lightning

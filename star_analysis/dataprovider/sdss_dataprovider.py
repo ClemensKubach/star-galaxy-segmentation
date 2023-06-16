@@ -9,6 +9,7 @@ import logging
 
 import numpy as np
 from star_analysis.dataprovider.image_downloader import ImageDownloader
+from star_analysis.utils.constants import DATAFILES_ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -112,15 +113,16 @@ class SDSSDataProvider:
     FIXED_VALIDATION_FIELD = "0080"
     FIXED_VALIDATION_CAMCOL = "6"
     FIXED_VALIDATION_RUN = "8162"
+    SINGLETON_DOWNLOADER = ImageDownloader(DATAFILES_ROOT, max_workers=os.cpu_count())
 
     def __init__(
             self,
-            downloader: ImageDownloader = ImageDownloader(os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'data')),
+            downloader: ImageDownloader | None = None,
             alignment_service: Optional[AlignmentService] = None,
             include_train_set: bool = True,
             include_test_set: bool = False
     ):
-        self.__downloader = downloader
+        self.__downloader = downloader if downloader else SDSSDataProvider.SINGLETON_DOWNLOADER
         self.alignment_service = alignment_service
         self.include_train_set = include_train_set
         self.include_test_set = include_test_set
@@ -165,7 +167,7 @@ class SDSSDataProvider:
         if run is not None:
             self.__downloader.run = run
 
-        data_files, label_files = self.__downloader.download()
+        data_files, label_files = self.__downloader.load()
 
         self.__group_files(data_files, label_files)
 

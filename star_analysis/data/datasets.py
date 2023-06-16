@@ -14,17 +14,25 @@ INNER_IMAGE_PADDING = 128
 class Sdss(data.Dataset):
     def __init__(
             self,
-            config: SdssDatasetConfig
+            config: SdssDatasetConfig,
+            provider: SDSSDataProvider | None = None
     ):
         self.config = config
         self.patch_shape = config.patch_shape
         self.inner_padding = INNER_IMAGE_PADDING
 
-        self.provider = SDSSDataProvider(
-            downloader=ImageDownloader(config.data_dir, max_workers=os.cpu_count()),
-            include_train_set=config.include_train_set,
-            include_test_set=config.include_test_set,
-        )
+        if provider:
+            self.provider = provider
+        else:
+            if config.data_dir and config.data_dir != SDSSDataProvider.SINGLETON_DOWNLOADER.to:
+                downloader = ImageDownloader(config.data_dir, max_workers=os.cpu_count())
+            else:
+                downloader = None
+            self.provider = SDSSDataProvider(
+                downloader=downloader,
+                include_train_set=config.include_train_set,
+                include_test_set=config.include_test_set,
+            )
         if config.prepare:
             self.prepare()
 

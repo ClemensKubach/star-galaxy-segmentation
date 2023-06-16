@@ -1,5 +1,8 @@
 import unittest
 
+import torch
+from tqdm import tqdm
+
 from star_analysis.data.configs import SdssDatasetConfig, SdssDataModuleConfig
 from star_analysis.data.datamodules import SdssDataModule
 from star_analysis.dataprovider.sdss_dataprovider import SDSSDataProvider
@@ -11,7 +14,7 @@ class DataModuleTestCase(unittest.TestCase):
         self.shuffle_train = True
         dataset_config = SdssDatasetConfig(
             patch_shape=(5, 5),
-            prepare=False,
+            prepare=True,
             run=SDSSDataProvider.FIXED_VALIDATION_RUN
         )
         module_config = SdssDataModuleConfig(
@@ -33,7 +36,31 @@ class DataModuleTestCase(unittest.TestCase):
         #assert batch_y.shape == (self.batch_size, 5, 5)
 
     def test_exclusivity(self):
-        pass
+        train_loader = self.datamodule.train_dataloader()
+        val_loader = self.datamodule.val_dataloader()
+        test_loader = self.datamodule.test_dataloader()
+
+        train_set = set(train_loader.dataset.indices)
+        val_set = set(val_loader.dataset.indices)
+        test_set = set(test_loader.dataset.indices)
+        in_all = train_set & val_set & test_set
+        assert len(in_all) == 0
+
+    def test_exclusivity_on_sample(self):
+        train_loader = self.datamodule.train_dataloader()
+        val_loader = self.datamodule.val_dataloader()
+        test_loader = self.datamodule.test_dataloader()
+
+        last_train_item = train_loader.dataset[-1]
+        x, _ = last_train_item
+        for i in tqdm(range(len(val_loader.dataset))):
+            x_val, _ = val_loader.dataset[i]
+            assert torch.equal(x, x_val)
+
+        for i in tqdm(range(len(test_loader.dataset))):
+            x_test, _ = test_loader.dataset[i]
+            assert torch.equal(x, x_test)
+
 
     def test_deterministic_shuffling(self):
         pass
@@ -43,4 +70,7 @@ class DataModuleTestCase(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    #unittest.main()
+    d = DataModuleTestCase()
+    d.setUp()
+    d.test_exclusivity_on_sample()

@@ -32,7 +32,8 @@ class SdssDataModule(LightningDataModule):
                 config.dataset_config,
                 include_train_set=False,
                 include_test_set=True
-            )
+            ),
+            provider=self.full_train_dataset.provider
         )
 
     def prepare_data(self):

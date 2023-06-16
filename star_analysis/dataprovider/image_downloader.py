@@ -14,12 +14,19 @@ class ImageDownloader:
     URL = "https://data.sdss.org/sas/dr17/eboss/photoObj/frames/301/"
     LABEL_URL = "https://data.sdss.org/sas/dr17/eboss/sweeps/dr13_final/301/"
 
-    def __init__(self, to: str, run: Optional[str] = None, only_labels: bool = False, max_workers: int = 4, fast_check: bool = True) -> None:
+    def __init__(self, to: str, run: Optional[str] = None, only_labels: bool = False, max_workers: int = 4,
+                 fast_check: bool = True) -> None:
         self.__max_workers = max_workers
         self.__to = to
         self.run = run
         self.__only_labels = only_labels
         self.__fast_check = fast_check
+
+        self.__loaded_images, self.__loaded_labels = None, None
+
+    @property
+    def to(self) -> str:
+        return self.__to
 
     def __prepare(self) -> tuple[str, str]:
         image_path = os.path.join(self.__to, 'images')
@@ -29,6 +36,11 @@ class ImageDownloader:
         os.makedirs(label_path, exist_ok=True)
 
         return image_path, label_path
+
+    def load(self) -> tuple[list[str], list[str]]:
+        if self.__loaded_images is None or self.__loaded_labels is None:
+            self.__loaded_images, self.__loaded_labels = self.download()
+        return self.__loaded_images, self.__loaded_labels
 
     def download(self) -> tuple[list[str], list[str]]:
         logger.info(f"Downloading {self.run or 'data'}")
@@ -40,7 +52,8 @@ class ImageDownloader:
                 self.__combine_url(ImageDownloader.URL, self.run), image_path)
 
         loaded_labels = self.__get_images(
-            ImageDownloader.LABEL_URL, label_path, re.compile(f"-0*{self.run}-.*-(gal|star)\.") if self.run is not None else re.compile(f"-(gal|star)\."))
+            ImageDownloader.LABEL_URL, label_path,
+            re.compile(f"-0*{self.run}-.*-(gal|star)\.") if self.run is not None else re.compile(f"-(gal|star)\."))
 
         return loaded_images, loaded_labels
 
@@ -82,7 +95,8 @@ class ImageDownloader:
 
         return bool(pattern.search(name))
 
-    def __get_images(self, url: str, folder: str, pattern: Optional[re.Pattern] = None, force: bool = False) -> list[str]:
+    def __get_images(self, url: str, folder: str, pattern: Optional[re.Pattern] = None, force: bool = False) -> list[
+        str]:
         base_table = requests.get(url)
 
         try:

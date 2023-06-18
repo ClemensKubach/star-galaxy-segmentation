@@ -3,6 +3,7 @@ from typing import Any
 from lightning import LightningDataModule, Trainer
 from torch.utils.data import DataLoader
 
+from star_analysis.data.augmentations import get_transforms, Augmentations
 from star_analysis.data.configs import SdssDatasetConfig, SdssDataModuleConfig
 from star_analysis.data.datamodules import SdssDataModule
 from star_analysis.dataprovider.sdss_dataprovider import SDSSDataProvider
@@ -21,8 +22,7 @@ class SdssRunner(Executable):
             batch_size: int = 32,
             learning_rate_init: float = 1e-3,
 
-            transform: Any = None,
-            target_transform: Any = None,
+            augmentation: Augmentations = Augmentations.NONE,
             shuffle_train: bool = True,
             train_size: float = 0.8,
             workers: int = 1,
@@ -35,6 +35,8 @@ class SdssRunner(Executable):
             batch_size=batch_size,
             learning_rate_init=learning_rate_init
         )
+
+        transform, target_transform = get_transforms(augmentation)
         dataset_config = SdssDatasetConfig(
             data_dir=self.data_dir,
             patch_shape=(patch_size, patch_size),

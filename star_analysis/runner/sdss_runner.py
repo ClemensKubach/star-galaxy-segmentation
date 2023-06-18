@@ -60,8 +60,8 @@ class SdssRunner(Executable):
     def train(
             self,
             max_epochs=10,
-            limit_train_batches=200,
-            limit_val_batches=100,
+            limit_train_batches=None,
+            limit_val_batches=None,
     ):
         self.trainer = Trainer(
             max_epochs=max_epochs,

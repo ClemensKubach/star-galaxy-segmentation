@@ -81,16 +81,20 @@ class Sdss(data.Dataset):
 
     def _get_patch(self, field: tuple[np.ndarray, np.ndarray], patch_idx: int) -> tuple[np.ndarray, np.ndarray]:
         x, y = self._get_cropped_data(field)
-        patch_width_slice = slice(
-            patch_idx * self.patch_shape[0],
-            (patch_idx + 1) * self.patch_shape[0]
-        )
-        patch_height_slice = slice(
-            patch_idx * self.patch_shape[1],
-            (patch_idx + 1) * self.patch_shape[1]
-        )
-        x_patch, y_patch = x[patch_width_slice, patch_height_slice], y[patch_width_slice, patch_height_slice]
+        x_patch, y_patch = self.__extract_patch(x, patch_idx), self.__extract_patch(y, patch_idx)
         return x_patch, y_patch
+
+    def __extract_patch(self, image: np.ndarray, patch_index: int) -> np.ndarray:
+        px, py = self.patch_shape
+        num_patches_x = image.shape[0] // px
+        pidx_x = patch_index % num_patches_x
+        pidx_y = patch_index // num_patches_x
+        start_x = pidx_x * px
+        start_y = pidx_y * py
+        end_x = start_x + px
+        end_y = start_y + py
+        patch = image[start_x:end_x, start_y:end_y]
+        return patch
 
     def _get_cropped_data(self, field: tuple[np.ndarray, np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
         field_x, field_y = field

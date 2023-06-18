@@ -24,9 +24,10 @@ class DatasetTestCase(unittest.TestCase):
         assert target is not None
 
     def test_size(self):
-        input_data, target = self.dataset[0]
-        assert input_data.shape == (224, 224, 5)
-        assert target.shape == (224, 224, 2)
+        for i in range(len(self.dataset)):
+            input_data, target = self.dataset[i]
+            assert input_data.shape == (224, 224, 5)
+            assert target.shape == (224, 224, 2)
 
     def test_completeness(self):
         """Takes a really long time. It only uses a single core here. Should be run only once."""

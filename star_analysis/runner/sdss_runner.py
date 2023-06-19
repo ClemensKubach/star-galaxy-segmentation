@@ -2,6 +2,9 @@ from typing import Any
 
 from lightning import LightningDataModule, Trainer
 from torch.utils.data import DataLoader
+from ray import tune
+from ray.tune import CLIReporter
+from ray.tune.schedulers import ASHAScheduler
 
 from star_analysis.data.augmentations import get_transforms, Augmentations
 from star_analysis.data.configs import SdssDatasetConfig, SdssDataModuleConfig
@@ -77,6 +80,51 @@ class SdssRunner(Executable):
             model=self.model,
             datamodule=self.data_module
         )
+
+    def tune(
+            self,
+            max_epochs=10,
+    ):
+        # Define the hyperparameter search space
+        config = {
+            'learning_rate': tune.loguniform(1e-4, 1e-1)
+        }
+
+        # Define the objective function for hyperparameter tuning
+        def objective(config):
+            self.trainer = Trainer(
+                max_epochs=max_epochs,
+                logger=self.logger,
+                num_nodes=-1,
+                callbacks=None,  # [early_stopping]
+                default_root_dir=CHECKPOINT_DIR
+            )
+            self.trainer.fit(
+                model=self.model,
+                datamodule=self.data_module
+            )
+            return trainer.callback_metrics['val_loss']
+
+        # Set up the Ray Tune scheduler
+        scheduler = ASHAScheduler(
+            max_t=10,
+            grace_period=1,
+            reduction_factor=2
+        )
+        reporter = CLIReporter(metric_columns=["val_loss"])
+        # Perform hyperparameter tuning with Ray Tune
+        analysis = tune.run(
+            objective,
+            config=config,
+            num_samples=10,
+            scheduler=scheduler,
+            progress_reporter=reporter
+        )
+        # Retrain the model with the best hyperparameters
+        best_config = analysis.get_best_config(metric='val_loss')
+        #best_model = MyModel(best_config['input_size'], best_config['hidden_size'], best_config['output_size'])
+        #trainer = Trainer(max_epochs=10)
+        #trainer.fit(best_model)
 
     def test(self):
         self.trainer.test(

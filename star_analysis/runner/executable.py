@@ -28,8 +28,8 @@ class Executable(ABC):
         self.batch_size = batch_size
         self.learning_rate_init = learning_rate_init
 
-        self.data_module = None
-        self.model = None
+        self.data_module: LightningDataModule | None = None
+        self.model: LightningModule | None = None
 
     def init(self):
         self.data_module = self._setup_data()

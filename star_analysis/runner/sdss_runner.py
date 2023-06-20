@@ -64,7 +64,7 @@ class SdssRunner(Executable):
 
     def train(
             self,
-            max_epochs=50,
+            max_epochs=15,
             limit_train_batches=None,
             limit_val_batches=None,
     ):
@@ -91,7 +91,7 @@ class SdssRunner(Executable):
     ):
         # Define the hyperparameter search space
         config = {
-            'learning_rate': tune.loguniform(1e-4, 1e-1)
+            'learning_rate': tune.loguniform(1e-4, 1e-2)
         }
 
         # Define the objective function for hyperparameter tuning

@@ -3,7 +3,7 @@ import torch
 from lightning import LightningModule
 from segmentation_models_pytorch.encoders import get_preprocessing_fn
 
-from star_analysis.model.neural_networks.loss import FocalLoss
+from star_analysis.model.neural_networks.loss import FocalLoss, DiceDistanceLoss
 from star_analysis.utils.conversions import vectorize_image
 
 
@@ -21,7 +21,7 @@ class UNetLightningModule(LightningModule):
             classes=self.num_classes,                      # model output channels (number of classes in your dataset)
         )
         self.loss_mode = smp.losses.MULTILABEL_MODE
-        self.loss_fn = smp.losses.DiceLoss(self.loss_mode, from_logits=True, log_loss=False)
+        self.loss_fn = DiceDistanceLoss(self.loss_mode, self.num_classes, from_logits=True, log_loss=False)
         self.preprocess_input = get_preprocessing_fn('resnet18', pretrained='imagenet')
         self.outputs_train = []
         self.outputs_val = []
@@ -56,7 +56,7 @@ class UNetLightningModule(LightningModule):
         logits_mask = self.forward(image)
 
         # Predicted mask contains logits, and loss_fn param `from_logits` is set to True
-        loss = self.loss_fn(vectorize_image(logits_mask, self.num_classes), vectorize_image(mask, self.num_classes))
+        loss = self.loss_fn(logits_mask, mask)
 
         # Lets compute metrics for some threshold
         # first convert mask values to probabilities, then
@@ -110,7 +110,7 @@ class UNetLightningModule(LightningModule):
             f"{stage}_dataset_f1": dataset_f1,
         }
 
-        self.log_dict(metrics, prog_bar=True)
+        self.log_dict(metrics, prog_bar=False)
 
     def training_step(self, batch, batch_idx):
         result = self.shared_step(batch, stage="train")

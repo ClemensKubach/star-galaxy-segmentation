@@ -7,6 +7,7 @@ import torch.nn as nn
 import segmentation_models_pytorch as smp
 from distancemap import distance_map_from_binary_matrix
 from segmentation_models_pytorch.losses import MULTICLASS_MODE, BINARY_MODE, MULTILABEL_MODE
+from torch.nn.modules.loss import _Loss
 
 from star_analysis.utils.conversions import vectorize_image
 
@@ -48,7 +49,10 @@ class FocalLoss(nn.Module):
             return focal_loss
 
 
-class DiceDistanceLoss(nn.Module):
+DiceLoss = smp.losses.DiceLoss
+
+
+class DiceDistanceLoss(_Loss):
     def __init__(
             self,
             mode: str,
@@ -60,7 +64,7 @@ class DiceDistanceLoss(nn.Module):
             ignore_index: Optional[int] = None,
             eps: float = 1e-7,
     ):
-        super().__init__()
+        super(DiceDistanceLoss, self).__init__()
         self.dice_loss = smp.losses.DiceLoss(
             mode=mode,
             classes=classes,
@@ -77,12 +81,10 @@ class DiceDistanceLoss(nn.Module):
         y_pred_img = y_pred
         y_true_img = y_true
         y_pred = vectorize_image(y_pred, self.num_classes)
-        y_true = vectorize_image(y_pred, self.num_classes)
+        y_true = vectorize_image(y_true, self.num_classes)
 
-        dice_loss = self.dice_loss.forward(y_pred, y_true)
+        dice_loss = self.dice_loss(y_pred, y_true)
         distance_loss = self.distance_loss(y_pred_img, y_true_img)
-
-        print(dice_loss, distance_loss)
 
         return (dice_loss + distance_loss) * 0.5
 

@@ -28,6 +28,7 @@ class Sdss(data.Dataset):
             downloader=downloader,
             include_train_set=config.include_train_set,
             include_test_set=config.include_test_set,
+            use_mmap=config.use_mmap,
         )
 
         if config.prepare:

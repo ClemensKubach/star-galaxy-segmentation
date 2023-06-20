@@ -2,6 +2,8 @@ import os
 from typing import Any
 
 from lightning import LightningDataModule, Trainer
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.tuner import Tuner
 from torch.utils.data import DataLoader
 from ray import tune
 from ray.tune import CLIReporter
@@ -22,16 +24,17 @@ class SdssRunner(Executable):
     def __init__(
             self,
             data_dir: str = DATAFILES_ROOT,
-            model_type: ModelTypes = ModelTypes.FCN,
+            model_type: ModelTypes = ModelTypes.UNET,
             project_name: str = "sdss-tests",
-            batch_size: int = 32,
-            learning_rate_init: float = 1e-3,
+            batch_size: int = None,
+            learning_rate_init: float = None,
 
             augmentation: Augmentations = Augmentations.NONE,
             shuffle_train: bool = True,
             train_size: float = 0.8,
             workers: int = os.cpu_count(),
             patch_size: int = 224,
+            use_mmap: bool = True
     ):
         super().__init__(
             data_dir=data_dir,
@@ -48,7 +51,8 @@ class SdssRunner(Executable):
             prepare=False,
             run=SDSSDataProvider.FIXED_VALIDATION_RUN,
             transform=transform,
-            target_transform=target_transform
+            target_transform=target_transform,
+            use_mmap=use_mmap
         )
         self.module_config = SdssDataModuleConfig(
             dataset_config=dataset_config,
@@ -68,6 +72,12 @@ class SdssRunner(Executable):
             limit_train_batches=None,
             limit_val_batches=None,
     ):
+        lr_monitor = LearningRateMonitor(logging_interval='step')
+        checkpointing_callback = ModelCheckpoint(
+            dirpath=CHECKPOINT_DIR,
+            monitor='val_loss',
+            save_top_k=3
+        )
         self.trainer = Trainer(
             max_epochs=max_epochs,
             logger=self.logger,
@@ -76,10 +86,17 @@ class SdssRunner(Executable):
             limit_val_batches=limit_val_batches,
             enable_checkpointing=True,
             callbacks=[
-                PlottingCallback()
+                PlottingCallback(),
+                lr_monitor,
+                checkpointing_callback
             ],
             default_root_dir=CHECKPOINT_DIR
         )
+        tuner = Tuner(self.trainer)
+        if self.batch_size is None:
+            tuner.scale_batch_size(self.model, mode="power", datamodule=self.data_module)
+        if self.learning_rate_init is None:
+            tuner.lr_find(self.model, datamodule=self.data_module)
         self.trainer.fit(
             model=self.model,
             datamodule=self.data_module
@@ -105,6 +122,9 @@ class SdssRunner(Executable):
                 ],  # [early_stopping]
                 default_root_dir=CHECKPOINT_DIR
             )
+            tuner = Tuner(self.trainer)
+            tuner.scale_batch_size(self.model, mode="power", datamodule=self.data_module)
+            tuner.lr_find(self.model)
             self.trainer.fit(
                 model=self.model,
                 datamodule=self.data_module

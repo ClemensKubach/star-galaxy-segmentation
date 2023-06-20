@@ -1,17 +1,26 @@
 import segmentation_models_pytorch as smp
 import torch
 from lightning import LightningModule
+from lightning.pytorch.cli import ReduceLROnPlateau
 from segmentation_models_pytorch.encoders import get_preprocessing_fn
 
-from star_analysis.model.neural_networks.loss import FocalLoss, DiceDistanceLoss
+from star_analysis.model.neural_networks.loss import FocalLoss, DiceDistanceLoss, DiceLoss
 from star_analysis.utils.conversions import vectorize_image
 
 
 class UNetLightningModule(LightningModule):
-    def __init__(self, image_shape: tuple[int, int], num_classes: int):
+    def __init__(
+            self,
+            image_shape: tuple[int, int],
+            num_classes: int,
+            learning_rate: float,
+            batch_size: int
+    ):
         super().__init__()
         self.image_shape = image_shape
         self.num_classes = num_classes
+        self.learning_rate = learning_rate
+        self.batch_size = batch_size
 
         # Instantiate the FCN model
         self.model = smp.Unet(
@@ -22,6 +31,7 @@ class UNetLightningModule(LightningModule):
         )
         self.loss_mode = smp.losses.MULTILABEL_MODE
         self.loss_fn = DiceDistanceLoss(self.loss_mode, self.num_classes, from_logits=True, log_loss=False)
+        #self.loss_fn = smp.losses.DiceLoss(self.loss_mode, from_logits=True, log_loss=False)
         self.preprocess_input = get_preprocessing_fn('resnet18', pretrained='imagenet')
         self.outputs_train = []
         self.outputs_val = []
@@ -57,6 +67,7 @@ class UNetLightningModule(LightningModule):
 
         # Predicted mask contains logits, and loss_fn param `from_logits` is set to True
         loss = self.loss_fn(logits_mask, mask)
+        #loss = self.loss_fn(vectorize_image(logits_mask, self.num_classes), vectorize_image(mask, self.num_classes))
 
         # Lets compute metrics for some threshold
         # first convert mask values to probabilities, then
@@ -131,5 +142,9 @@ class UNetLightningModule(LightningModule):
         self.outputs_val = []
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
-        return optimizer
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        scheduler = ReduceLROnPlateau(optimizer, monitor='train_loss')
+        return {'optimizer': optimizer,
+                'scheduler': scheduler,
+                'monitor': "train_loss"
+                }

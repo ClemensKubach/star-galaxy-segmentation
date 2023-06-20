@@ -126,6 +126,7 @@ class SDSSDataProvider:
             include_test_set: bool = False,
             force_realign: bool = False,
             save_new_alignments: bool = True,
+            use_mmap: bool = True
     ):
         self.__downloader = downloader if downloader else SDSSDataProvider.SINGLETON_DOWNLOADER
         self.alignment_service = alignment_service
@@ -133,6 +134,7 @@ class SDSSDataProvider:
         self.include_test_set = include_test_set
         self.force_realign = force_realign
         self.save_new_alignments = save_new_alignments
+        self.use_mmap = use_mmap
 
         self.__data_files = {}
         self.__label_files = {}
@@ -294,8 +296,12 @@ class SDSSDataProvider:
                 np.save(x_filepath, x)
                 np.save(y_filepath, y)
         else:
-            x = np.load(x_filepath, mmap_mode='r')
-            y = np.load(y_filepath, mmap_mode='r')
+            if self.use_mmap:
+                mmap_mode = 'r'
+            else:
+                mmap_mode = None
+            x = np.load(x_filepath, mmap_mode=mmap_mode)
+            y = np.load(y_filepath, mmap_mode=mmap_mode)
         return x, y
 
     def _get_aligned_by_data_index(self, index: int) -> tuple[np.ndarray, np.ndarray]:

@@ -15,6 +15,7 @@ class SdssDatasetConfig:
     include_test_set: bool = False
     transform: Any = None
     target_transform: Any = None
+    use_mmap: bool = True
 
 
 @dataclass

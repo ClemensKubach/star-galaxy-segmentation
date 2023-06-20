@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABC
 
+import torch
 from lightning import LightningModule, LightningDataModule
 from lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
@@ -7,7 +8,7 @@ from torch.utils.data import DataLoader
 from star_analysis.model.neural_networks.fcn import FCNLightningModule
 from star_analysis.model.neural_networks.unet import UNetLightningModule
 from star_analysis.model.types import ModelTypes
-from star_analysis.utils.constants import LOGGING_DIR
+from star_analysis.utils.constants import LOGGING_DIR, MODEL_DIR
 
 
 class Executable(ABC):
@@ -46,17 +47,18 @@ class Executable(ABC):
             case ModelTypes.FCN:
                 return FCNLightningModule((224, 224), 2)
             case ModelTypes.UNET:
-                return UNetLightningModule((224, 224), 2)
+                return UNetLightningModule((224, 224), 2, self.learning_rate_init, self.batch_size)
             case ModelTypes.CUSTOM:
                 return self.model
             case _:
                 raise ValueError(f"Unknown model type {self.model_type}")
 
     def save_model(self):
-        raise NotImplementedError(f"Save model not implemented yet")
+        torch.save(self.model, MODEL_DIR)
 
-    def load_model(self):
-        raise NotImplementedError(f"Load model not implemented yet")
+    def load_model(self) -> LightningModule:
+        self.model = torch.load(MODEL_DIR)
+        return self.model
 
     def __enter__(self):
         return self

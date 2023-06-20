@@ -2,11 +2,13 @@ import torch
 from lightning import Callback
 from lightning.pytorch.loggers import TensorBoardLogger
 
+from star_analysis.utils.conversions import relocate_channels
+
 
 def _plotting(state: str, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx = 0) -> None:
     if batch_idx == 0 or True:
         inputs, labels = batch
-        predictions = pl_module(inputs.permute(0, 3, 2, 1)).permute(0, 3, 2, 1)
+        predictions = relocate_channels(pl_module(relocate_channels(inputs)))
 
         inputs = inputs[0]
         labels = labels[0]

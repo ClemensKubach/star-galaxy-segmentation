@@ -12,3 +12,6 @@ lightning
 StrEnum
 fire
 ray
+pandas
+tensorboard
+segmentation-models-pytorch

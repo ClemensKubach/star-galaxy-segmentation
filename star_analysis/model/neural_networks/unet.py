@@ -9,15 +9,17 @@ from star_analysis.model.neural_networks.loss import FocalLoss
 class UNetLightningModule(LightningModule):
     def __init__(self, image_shape: tuple[int, int], num_classes: int):
         super().__init__()
+        self.image_shape = image_shape
+        self.num_classes = num_classes
 
         # Instantiate the FCN model
         self.model = smp.Unet(
             encoder_name="resnet18",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
             encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
             in_channels=5,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-            classes=2,                      # model output channels (number of classes in your dataset)
+            classes=self.num_classes,                      # model output channels (number of classes in your dataset)
         )
-        self.loss_fn = smp.losses.DiceLoss(smp.losses.MULTILABEL_MODE, from_logits=True, log_loss=False)
+        self.loss_fn = smp.losses.DiceLoss(smp.losses.MULTICLASS_MODE, from_logits=True, log_loss=False)
         self.preprocess_input = get_preprocessing_fn('resnet18', pretrained='imagenet')
         self.outputs_train = []
         self.outputs_val = []
@@ -52,7 +54,7 @@ class UNetLightningModule(LightningModule):
         logits_mask = self.forward(image)
 
         # Predicted mask contains logits, and loss_fn param `from_logits` is set to True
-        loss = self.loss_fn(logits_mask, mask)
+        loss = self.loss_fn(flatten_image(logits_mask, self.num_classes), flatten_image(mask, self.num_classes))
 
         # Lets compute metrics for some threshold
         # first convert mask values to probabilities, then
@@ -66,7 +68,7 @@ class UNetLightningModule(LightningModule):
         # but for now we just compute true positive, false positive, false negative and
         # true negative 'pixels' for each image and class
         # these values will be aggregated in the end of an epoch
-        tp, fp, fn, tn = smp.metrics.get_stats(pred_mask.long(), mask.long(), mode="multilabel")
+        tp, fp, fn, tn = smp.metrics.get_stats(flatten_image(pred_mask, self.num_classes).long(), flatten_image(mask, self.num_classes).long(), mode="multiclass")
 
         return {
             "loss": loss,
@@ -124,3 +126,7 @@ class UNetLightningModule(LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         return optimizer
+
+
+def flatten_image(image: torch.Tensor, num_classes) -> torch.Tensor:
+    return image.contiguous().view(image.size(0), num_classes, -1)

@@ -1,9 +1,8 @@
-from enum import StrEnum
-
 from torchvision.transforms import transforms
+from enum import Enum
 
 
-class Augmentations(StrEnum):
+class Augmentations(Enum):
     NONE = None
     ROTATE = "rotate"
     FLIP = "flip"

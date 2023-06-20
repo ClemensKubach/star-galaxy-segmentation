@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 from lightning import LightningDataModule, Trainer
@@ -12,14 +13,15 @@ from star_analysis.data.datamodules import SdssDataModule
 from star_analysis.dataprovider.sdss_dataprovider import SDSSDataProvider
 from star_analysis.model.types import ModelTypes
 from star_analysis.runner.executable import Executable
-from star_analysis.utils.constants import CHECKPOINT_DIR
+from star_analysis.utils.callbacks import PlottingCallback
+from star_analysis.utils.constants import CHECKPOINT_DIR, DATAFILES_ROOT
 
 
 class SdssRunner(Executable):
 
     def __init__(
             self,
-            data_dir: str,
+            data_dir: str = DATAFILES_ROOT,
             model_type: ModelTypes = ModelTypes.FCN,
             project_name: str = "sdss-tests",
             batch_size: int = 32,
@@ -28,7 +30,7 @@ class SdssRunner(Executable):
             augmentation: Augmentations = Augmentations.NONE,
             shuffle_train: bool = True,
             train_size: float = 0.8,
-            workers: int = 1,
+            workers: int = os.cpu_count(),
             patch_size: int = 224,
     ):
         super().__init__(
@@ -62,7 +64,7 @@ class SdssRunner(Executable):
 
     def train(
             self,
-            max_epochs=10,
+            max_epochs=50,
             limit_train_batches=None,
             limit_val_batches=None,
     ):
@@ -73,7 +75,9 @@ class SdssRunner(Executable):
             limit_train_batches=limit_train_batches,
             limit_val_batches=limit_val_batches,
             enable_checkpointing=True,
-            callbacks=None,  # [early_stopping]
+            callbacks=[
+                PlottingCallback()
+            ],
             default_root_dir=CHECKPOINT_DIR
         )
         self.trainer.fit(
@@ -96,14 +100,16 @@ class SdssRunner(Executable):
                 max_epochs=max_epochs,
                 logger=self.logger,
                 num_nodes=-1,
-                callbacks=None,  # [early_stopping]
+                callbacks=[
+                    PlottingCallback()
+                ],  # [early_stopping]
                 default_root_dir=CHECKPOINT_DIR
             )
             self.trainer.fit(
                 model=self.model,
                 datamodule=self.data_module
             )
-            return trainer.callback_metrics['val_loss']
+            return self.trainer.callback_metrics['val_loss']
 
         # Set up the Ray Tune scheduler
         scheduler = ASHAScheduler(
@@ -137,3 +143,8 @@ class SdssRunner(Executable):
             dataloaders=data_loader
         )
 
+
+if __name__ == '__main__':
+    runner = SdssRunner(shuffle_train=False, model_type=ModelTypes.UNET)
+    runner.init()
+    runner.train(limit_train_batches=10, limit_val_batches=10, max_epochs=10)

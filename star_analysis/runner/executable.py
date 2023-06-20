@@ -4,6 +4,8 @@ from lightning import LightningModule, LightningDataModule
 from lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 
+from star_analysis.model.neural_networks.fcn import FCNLightningModule
+from star_analysis.model.neural_networks.unet import UNetLightningModule
 from star_analysis.model.types import ModelTypes
 from star_analysis.utils.constants import LOGGING_DIR
 
@@ -42,9 +44,9 @@ class Executable(ABC):
     def _setup_model(self) -> LightningModule | None:
         match self.model_type:
             case ModelTypes.FCN:
-                raise NotImplementedError(f"FCN not implemented yet")
+                return FCNLightningModule((224, 224), 2)
             case ModelTypes.UNET:
-                raise NotImplementedError(f"UNET not implemented yet")
+                return UNetLightningModule((224, 224), 2)
             case ModelTypes.CUSTOM:
                 return self.model
             case _:

@@ -31,18 +31,27 @@ class BalanceClasses:
 
         random_cls_values = torch.normal(
             torch.as_tensor(self.__cls_distribution[0][needed_class]).expand(
-                needed_count),
+                (int(needed_count), len(self.__cls_distribution[0][needed_class]))),
             torch.as_tensor(self.__cls_distribution[1][needed_class]).expand(
-                needed_count)
+                (int(needed_count), len(self.__cls_distribution[0][needed_class])))
         )
 
-        x, y = ((~image[:, :, self.__labels_start:]).all(
-            axis=(-1, -2))).nonzero()
+        x, y = ((~image[:, :, self.__labels_start:].astype(bool)).all(
+            axis=-1)).nonzero()
+        coords = np.concatenate(
+            (x[:, None], y[:, None]), axis=-1)
 
-        chosen_pixels = np.random.choice(np.concatenate(
-            (x, y), axis=-1), size=needed_count, replace=False)
+        pixels_to_choose = len(coords)
+        if needed_count > pixels_to_choose:
+            pixels_to_choose = needed_count
+
+        chosen_ids = np.random.choice(
+            range(pixels_to_choose), size=int(needed_count), replace=False)
+        chosen_pixels = coords[chosen_ids]
+
         image[chosen_pixels[:, 0], chosen_pixels[:, 1],
               :self.__labels_start] = random_cls_values
+
         image[chosen_pixels[:, 0], chosen_pixels[:, 1],
               self.__labels_start + needed_class] = 1
 

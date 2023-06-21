@@ -2,7 +2,7 @@
 To download the data, we implemented the class \emph{ImageDownloader}. It automatically loads all fits files or only the ones of one run. When starting a run, the downloader will skip files already present on disk.
 For all our experiments we used the images of run \emph{8162}.
 
-\begin{figure}
+\begin{listing}
     \begin{minted}[linenos]{python3}
 def __align_image(self, reference: Union[PrimaryHDU, Cutout2D], other: PrimaryHDU, size: Optional[tuple] = None) -> tuple[Cutout2D, Cutout2D]:
     reference_wcs = (WCS(reference.header)
@@ -29,7 +29,7 @@ def __align_image(self, reference: Union[PrimaryHDU, Cutout2D], other: PrimaryHD
         \end{minted}
     \label{alignementCode}
     \caption{The code we use to align an image pair}
-\end{figure}
+\end{listing}
 
 Alignement of the data is handled by the \emph{AlignementService}. In particular, the code seen in \Cref{alignementCode} handles the adjusting of two images. We then loop over all spectral bands and get the corresponding cutouts in reference to the first image. This results in a nicely aligned multichannel image.
 

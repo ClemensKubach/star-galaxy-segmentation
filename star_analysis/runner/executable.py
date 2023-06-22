@@ -1,4 +1,6 @@
+import os
 from abc import abstractmethod, ABC
+from datetime import datetime
 
 import torch
 from lightning import LightningModule, LightningDataModule
@@ -54,10 +56,15 @@ class Executable(ABC):
                 raise ValueError(f"Unknown model type {self.model_type}")
 
     def save_model(self):
-        torch.save(self.model, MODEL_DIR)
+        torch.save(self.model, os.path.join(MODEL_DIR, f'model-{str(datetime.now())}.pt'))
 
-    def load_model(self) -> LightningModule:
-        self.model = torch.load(MODEL_DIR)
+    def load_model(self, name: str = None, path: str = None) -> LightningModule:
+        if name:
+            self.model = torch.load(os.path.join(MODEL_DIR, name))
+        elif path:
+            self.model = torch.load(path)
+        else:
+            raise ValueError(f"Either name or path must be specified")
         return self.model
 
     def __enter__(self):

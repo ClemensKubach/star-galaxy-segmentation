@@ -165,6 +165,11 @@ class SdssRunner(Executable):
 
 
 if __name__ == '__main__':
-    runner = SdssRunner(shuffle_train=False, model_type=ModelTypes.UNET)
+    runner = SdssRunner(
+        shuffle_train=True,
+        model_type=ModelTypes.UNET,
+        batch_size=32,
+        learning_rate_init=1e-3,
+    )
     runner.init()
-    runner.train(limit_train_batches=10, limit_val_batches=10, max_epochs=10)
+    runner.train(limit_train_batches=None, limit_val_batches=None, max_epochs=10)

@@ -2,11 +2,10 @@ from typing import Any
 
 import torch
 from lightning import LightningModule
+from segmentation_models_pytorch.losses import FocalLoss, MULTILABEL_MODE
 from torch import nn
 from torchvision import models
 from torchvision.models.segmentation.fcn import FCNHead
-
-from star_analysis.model.neural_networks.loss import kl_loss, FocalLoss
 
 
 class FCN(nn.Module):
@@ -49,7 +48,7 @@ class FCNLightningModule(LightningModule):
 
         # Instantiate the FCN model
         self.model = FCN(image_shape, num_classes)
-        self.loss = FocalLoss(reduction='mean')  # nn.BCELoss(reduction='mean')
+        self.loss = FocalLoss(mode=MULTILABEL_MODE, reduction='mean')  # nn.BCELoss(reduction='mean')
 
     def forward(self, x):
         return self.model(x)

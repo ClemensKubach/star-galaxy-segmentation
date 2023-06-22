@@ -8,7 +8,10 @@ from star_analysis.utils.conversions import relocate_channels
 def _plotting(state: str, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx = 0) -> None:
     if batch_idx == 0 or True:
         inputs, labels = batch
-        predictions = relocate_channels(pl_module(relocate_channels(inputs)))
+        logits_mask = relocate_channels(pl_module(relocate_channels(inputs)))
+
+        prob_mask = logits_mask.sigmoid()
+        predictions = (prob_mask > 0.5).float()
 
         inputs = inputs[0]
         labels = labels[0]

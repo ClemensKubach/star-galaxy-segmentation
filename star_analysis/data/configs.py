@@ -14,7 +14,6 @@ class SdssDatasetConfig:
     include_train_set: bool = True
     include_test_set: bool = False
     transform: Any = None
-    target_transform: Any = None
     use_mmap: bool = True
 
 

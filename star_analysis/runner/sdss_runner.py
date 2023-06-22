@@ -44,14 +44,13 @@ class SdssRunner(Executable):
             learning_rate_init=learning_rate_init
         )
 
-        transform, target_transform = get_transforms(augmentation)
+        transform = get_transforms(augmentation)
         dataset_config = SdssDatasetConfig(
             data_dir=self.data_dir,
             patch_shape=(patch_size, patch_size),
             prepare=False,
             run=SDSSDataProvider.FIXED_VALIDATION_RUN,
             transform=transform,
-            target_transform=target_transform,
             use_mmap=use_mmap
         )
         self.module_config = SdssDataModuleConfig(
@@ -94,7 +93,8 @@ class SdssRunner(Executable):
         )
         tuner = Tuner(self.trainer)
         if self.batch_size is None:
-            tuner.scale_batch_size(self.model, mode="power", datamodule=self.data_module)
+            tuner.scale_batch_size(
+                self.model, mode="power", datamodule=self.data_module)
         if self.learning_rate_init is None:
             tuner.lr_find(self.model, datamodule=self.data_module)
         self.trainer.fit(
@@ -123,7 +123,8 @@ class SdssRunner(Executable):
                 default_root_dir=CHECKPOINT_DIR
             )
             tuner = Tuner(self.trainer)
-            tuner.scale_batch_size(self.model, mode="power", datamodule=self.data_module)
+            tuner.scale_batch_size(
+                self.model, mode="power", datamodule=self.data_module)
             tuner.lr_find(self.model)
             self.trainer.fit(
                 model=self.model,
@@ -148,9 +149,9 @@ class SdssRunner(Executable):
         )
         # Retrain the model with the best hyperparameters
         best_config = analysis.get_best_config(metric='val_loss')
-        #best_model = MyModel(best_config['input_size'], best_config['hidden_size'], best_config['output_size'])
-        #trainer = Trainer(max_epochs=10)
-        #trainer.fit(best_model)
+        # best_model = MyModel(best_config['input_size'], best_config['hidden_size'], best_config['output_size'])
+        # trainer = Trainer(max_epochs=10)
+        # trainer.fit(best_model)
 
     def test(self):
         self.trainer.test(

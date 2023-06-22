@@ -1,5 +1,11 @@
+from __future__ import annotations
+
+import numpy as np
+import torch
 from torchvision.transforms import transforms
 from enum import Enum
+
+from star_analysis.service.statistics_service import StatisticsService
 
 
 class Augmentations(Enum):
@@ -8,39 +14,90 @@ class Augmentations(Enum):
     FLIP = "flip"
     ZOOM = "zoom"
     ROTATE_FLIP = "rotate_flip"
+    BALANCE_CLASSES = "balance_classes"
 
 
-def get_transforms(augmentations: Augmentations) -> tuple[transforms.Compose | None, transforms.Compose | None]:
+class BalanceClasses:
+    def __init__(self, labels_start: int):
+        self.__labels_start = labels_start
+        self.__cls_distribution = StatisticsService(
+        ).get_distribution_per_class(calculate=False)
+
+    def __call__(self, image: np.ndarray):
+        local_dist = image[:, :, self.__labels_start:].sum(axis=(0, 1))
+
+        needed_class = np.argmin(local_dist, axis=-1)
+        needed_count = np.abs(local_dist[0] - local_dist[1])
+
+        random_cls_values = torch.normal(
+            torch.as_tensor(self.__cls_distribution[0][needed_class]).expand(
+                (int(needed_count), len(self.__cls_distribution[0][needed_class]))),
+            torch.as_tensor(self.__cls_distribution[1][needed_class]).expand(
+                (int(needed_count), len(self.__cls_distribution[0][needed_class])))
+        )
+
+        x, y = ((~image[:, :, self.__labels_start:].astype(bool)).all(
+            axis=-1)).nonzero()
+        coords = np.concatenate(
+            (x[:, None], y[:, None]), axis=-1)
+
+        pixels_to_choose = len(coords)
+        if needed_count > pixels_to_choose:
+            pixels_to_choose = needed_count
+
+        chosen_ids = np.random.choice(
+            range(pixels_to_choose), size=int(needed_count), replace=False)
+        chosen_pixels = coords[chosen_ids]
+
+        image[chosen_pixels[:, 0], chosen_pixels[:, 1],
+              :self.__labels_start] = random_cls_values
+
+        image[chosen_pixels[:, 0], chosen_pixels[:, 1],
+              self.__labels_start + needed_class] = 1
+
+        return image
+
+    def __repr__(self):
+        return f"BalanceClasses({self.__labels_start})"
+
+
+def get_transforms(augmentations: Augmentations) -> transforms.Compose | None:
     """
     Get the transforms for input and target images.
 
     :param augmentations:
     :return: tuple of transforms for input and target images
     """
+    transf = None
     if augmentations == Augmentations.NONE:
-        return None, None
+        pass
     elif augmentations == Augmentations.ROTATE:
-        t = transforms.Compose([
-            transforms.RandomRotation(degrees=30),  # Random rotations up to 30 degrees
-            transforms.ToTensor(),
-        ])
-        return t, t
+        transf = [
+            # Random rotations up to 30 degrees
+            transforms.RandomRotation(degrees=30),
+        ]
     elif augmentations == Augmentations.FLIP:
-        t = transforms.Compose([
+        transf = [
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
-            transforms.ToTensor(),
-        ])
-        return t, t
+        ]
     elif augmentations == Augmentations.ZOOM:
         raise NotImplementedError("Zoom not implemented")
     elif augmentations == Augmentations.ROTATE_FLIP:
-        t = transforms.Compose([
-            transforms.RandomRotation(degrees=30),  # Random rotations up to 30 degrees
+        transf = [
+            # Random rotations up to 30 degrees
+            transforms.RandomRotation(degrees=30),
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
-            transforms.ToTensor(),
-        ])
-        return t, t
+        ]
+    elif augmentations == Augmentations.BALANCE_CLASSES:
+        transf = [
+            BalanceClasses(5)
+        ]
     else:
         raise ValueError(f"Unknown augmentation: {augmentations}")
+
+    if transf is None:
+        return None
+
+    return transforms.Compose(transf + [transforms.ToTensor()])

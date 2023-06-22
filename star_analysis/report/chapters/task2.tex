@@ -1,1 +1,5 @@
-Task 2
+We implemented two different selection procedures for data splitting.
+
+First, we just randomly sample into the the different sets (train, test, validation). Random sampling should preserve all metrics and should avoid fitting to local correlations. The numpy random seed can be set to create a deterministic splitting procedure.
+
+In the second procedure, we assign consecutive slices always a different set. At least as long as the desired train, val, test distribution is not met. If one set is filled, it will no longer receive further slices. This results in the last slices always belonging to the train set. Just as random sampling, splitting the data in a round-robin manner should yield strong sets.

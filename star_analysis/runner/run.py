@@ -1,0 +1,167 @@
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
+from lightning import LightningDataModule, LightningModule, Trainer
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.tuner import Tuner
+from torch.nn import Module
+
+from star_analysis.data.augmentations import Augmentations, get_transforms
+from star_analysis.data.configs import SdssDatasetConfig, SdssDataModuleConfig
+from star_analysis.data.datamodules import SdssDataModule
+from star_analysis.dataprovider.sdss_dataprovider import SDSSDataProvider
+from star_analysis.model.neural_networks.model_config import ModelConfig
+from star_analysis.utils.callbacks import PlottingCallback
+from star_analysis.utils.constants import CHECKPOINT_DIR
+
+
+@dataclass
+class TrainerConfig:
+    logger: Any
+    limit_train_batches: float | int | None = 100
+    limit_val_batches: float | int | None = 10
+    max_epochs: int = 10
+
+
+@dataclass
+class RunConfig:
+    model_config: ModelConfig | None = None
+    augmentation: Augmentations = Augmentations.NONE
+    shuffle_train: bool = True
+    train_size: float = 0.8
+    patch_size: int = 224
+    trainer: Trainer | None = None
+    use_mmap: bool = True
+
+
+class Run:
+    def __init__(
+            self,
+            config: RunConfig,
+            name: str | None = None,
+            datamodule: LightningDataModule | None = None,
+    ):
+        self.__name = name
+        self.__config = config
+        self.__built = False
+        self.__trained = False
+
+        self.__data_module: LightningDataModule | None = datamodule
+        self.__trainer: Trainer | None = config.trainer
+        self.__model: LightningModule | None = config.model_config.model_module
+        self.__loss: Module | None = config.model_config.loss_module
+
+    @property
+    def name(self) -> str:
+        return self.__name
+
+    @property
+    def config(self) -> RunConfig:
+        return self.__config
+
+    @property
+    def data_module(self) -> LightningDataModule | None:
+        return self.__data_module
+
+    @property
+    def trainer(self) -> Trainer | None:
+        return self.__trainer
+
+    @property
+    def model(self) -> LightningModule | None:
+        return self.__model
+
+    @property
+    def loss(self) -> Module | None:
+        return self.__loss
+
+    @property
+    def built(self) -> bool:
+        return self.__built
+
+    @property
+    def trained(self) -> bool:
+        return self.__trained
+
+    def build(self, data_dir: str, num_workers: int, trainer_config: TrainerConfig):
+        if self.built:
+            print(f"Run {self.name} already built")
+            return
+
+        if self.config.model_config is None:
+            raise ValueError("Model config is None")
+        else:
+            if self.name is None:
+                self.__name = f'run-{self.config.model_config.model_type}-{str(datetime.now())}'
+            if self.model is None:
+                self.__model = self._build_model()
+            if self.loss is None:
+                self.__loss = self._build_loss()
+
+        if self.data_module is None:
+            self.__data_module = self._build_datamodule(data_dir, num_workers)
+
+        if self.trainer is None:
+            self.__trainer = self._build_trainer(trainer_config)
+
+        self.__built = True
+
+    def _build_model(self) -> LightningModule:
+        return self.config.model_config.get_model()
+
+    def _build_loss(self) -> Module:
+        return self.config.model_config.get_loss()
+
+    def _build_datamodule(self, data_dir: str, num_workers: int):
+        transform = get_transforms(self.config.augmentation)
+        dataset_config = SdssDatasetConfig(
+            data_dir=data_dir,
+            patch_shape=(self.config.patch_size, self.config.patch_size),
+            prepare=False,
+            run=SDSSDataProvider.FIXED_VALIDATION_RUN,
+            transform=transform,
+            use_mmap=self.config.use_mmap
+        )
+        module_config = SdssDataModuleConfig(
+            dataset_config=dataset_config,
+            batch_size=self.config.model_config.batch_size,
+            shuffle_train=self.config.shuffle_train,
+            train_size=self.config.train_size,
+            num_workers=num_workers
+        )
+        return SdssDataModule(module_config)
+
+    def _build_trainer(self, config: TrainerConfig):
+        lr_monitor = LearningRateMonitor(logging_interval='step')
+        checkpointing_callback = ModelCheckpoint(
+            monitor='val_loss',
+            save_top_k=3
+        )
+        trainer = Trainer(
+            max_epochs=config.max_epochs,
+            logger=config.logger,
+            num_nodes=-1,
+            limit_train_batches=config.limit_train_batches,
+            limit_val_batches=config.limit_val_batches,
+            enable_checkpointing=True,
+            callbacks=[
+                PlottingCallback(),
+                lr_monitor,
+                checkpointing_callback
+            ],
+            default_root_dir=CHECKPOINT_DIR
+        )
+        tuner = Tuner(self.config.trainer)
+        if self.config.model_config.batch_size is None:
+            tuner.scale_batch_size(
+                self.config.model_config.model_module,
+                mode="power",
+                datamodule=self.data_module
+            )
+        if self.config.model_config.learning_rate is None:
+            tuner.lr_find(
+                self.config.model_config.model_module,
+                datamodule=self.data_module
+            )
+        return trainer

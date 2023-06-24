@@ -89,6 +89,13 @@ class Run:
             data_dir=data_dir, num_workers=num_workers, trainer_config=trainer_config
         )
 
+    def fit(self):
+        self.trainer.fit(
+            model=self.model,
+            datamodule=self.data_module
+        )
+        self.__trained = True
+
     def rebuild(
             self,
             rebuild_data_module: bool = False,
@@ -162,7 +169,8 @@ class Run:
         lr_monitor = LearningRateMonitor(logging_interval='step')
         checkpointing_callback = ModelCheckpoint(
             monitor='val_loss',
-            save_top_k=3
+            save_top_k=3,
+            auto_insert_metric_name=True
         )
         trainer = Trainer(
             max_epochs=config.max_epochs,

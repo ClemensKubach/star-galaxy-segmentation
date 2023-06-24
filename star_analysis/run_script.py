@@ -10,8 +10,8 @@ if __name__ == '__main__':
     run = Run(
         SdssRunConfig(
             model_config=SdssModelConfig(
-                learning_rate=1e-4,
-                batch_size=32,
+                learning_rate=1e-3,
+                batch_size=96,
                 model_type=ModelTypes.UNET,
                 loss_type=LossType.DICE
             ),
@@ -25,7 +25,7 @@ if __name__ == '__main__':
         run=run,
         trainer_config=TrainerConfig(
             logger=None,
-            max_epochs=1,
+            max_epochs=10,
         )
     )
     runner.save_model(run)

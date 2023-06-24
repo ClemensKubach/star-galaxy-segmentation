@@ -31,6 +31,8 @@ class Sdss(data.Dataset):
             include_train_set=config.include_train_set,
             include_test_set=config.include_test_set,
             use_mmap=config.use_mmap,
+            save_new_alignments=True,
+            force_realign=False
         )
 
         if config.prepare:

@@ -68,11 +68,7 @@ class Runner:
             )
 
         run = self._check_for_simple_run(run, trainer_config)
-
-        run.trainer.fit(
-            model=run.model,
-            datamodule=run.data_module
-        )
+        run.fit()
 
     def tune(
             self,
@@ -164,6 +160,8 @@ class Runner:
             os.makedirs(MODEL_DIR)
         if run.trained:
             torch.save(run.model, os.path.join(MODEL_DIR, f'model-{run.name}.pt'))
+        else:
+            raise ValueError("Model not trained yet. Please train it first.")
 
     # TODO
     def load_model(self, name: str = None, path: str = None, mode: str = 'model') -> LightningModule:

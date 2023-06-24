@@ -30,6 +30,7 @@ class BaseLightningModule(LightningModule):
         # for later use
         self._outputs_train = []
         self._outputs_val = []
+        self._outputs_test = []
 
     @property
     def config(self) -> ModelConfig:
@@ -105,6 +106,10 @@ class BaseLightningModule(LightningModule):
         self._outputs_val.append(result)
         return result
 
+    def test_step(self, batch, batch_idx):
+        result = self.shared_step(batch, stage="test")
+        return result
+
     def on_train_epoch_end(self):
         self.shared_epoch_end(self._outputs_train, "train")
         self._outputs_train = []
@@ -112,6 +117,10 @@ class BaseLightningModule(LightningModule):
     def on_validation_epoch_end(self):
         self.shared_epoch_end(self._outputs_val, "val")
         self._outputs_val = []
+
+    def on_test_epoch_end(self):
+        self.shared_epoch_end(self._outputs_test, "test")
+        self._outputs_test = []
 
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)

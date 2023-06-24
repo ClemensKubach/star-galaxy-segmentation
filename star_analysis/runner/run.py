@@ -25,6 +25,15 @@ class TrainerConfig:
 
 
 @dataclass
+class OptunaTuneTrainerConfig(TrainerConfig):
+    num_trials: int = None
+    timeout: int = 60 * 60 * 2
+    num_jobs: int = -1
+    show_progress_bar: bool = True
+    gc_after_trial: bool = True
+
+
+@dataclass
 class RunConfig:
     model_config: ModelConfig | None = None
     augmentation: Augmentations = Augmentations.NONE

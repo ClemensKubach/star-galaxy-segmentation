@@ -1,15 +1,25 @@
+import copy
 import os
-from typing import Iterable
+from dataclasses import replace
+from enum import auto
+from typing import Iterable, Callable
 
 import optuna
 import torch
 from lightning import LightningModule
 from lightning.pytorch.loggers import TensorBoardLogger
-from optuna import Trial
+from optuna import Trial, Study
+from strenum import StrEnum
 from torch.utils.data import DataLoader
 
-from star_analysis.runner.run import Run, TrainerConfig
+from star_analysis.model.types import ModelTypes
+from star_analysis.runner.run import Run, TrainerConfig, OptunaTuneTrainerConfig, RunConfig
 from star_analysis.utils.constants import DATAFILES_ROOT, LOGGING_DIR, MODEL_DIR
+
+
+class TuningModes(StrEnum):
+    ITERATIVE = auto()
+    PARALLEL = auto()
 
 
 class Runner:
@@ -72,49 +82,38 @@ class Runner:
 
     def tune(
             self,
-            tuning_runs: Iterable[Run] | None = None,
-            tuning_trainer_config: TrainerConfig | None = None,
-            mode: str = 'iterative',
-    ):
-        if tuning_trainer_config is None:
-            tuning_trainer_config = TrainerConfig(
+            mode: TuningModes = TuningModes.ITERATIVE,
+            trainer_config: TrainerConfig | OptunaTuneTrainerConfig | None = None,
+            runs: Iterable[Run] | None = None,
+            optuna_objective: Callable = None
+    ) -> list[dict[str, float]] | Study:
+        if trainer_config is None:
+            trainer_config = TrainerConfig(
                 logger=self.logger,
                 limit_train_batches=None,
                 limit_val_batches=None,
                 max_epochs=10
             )
 
-        if tuning_runs is None:
-            run = self.get_last_valid_run()
-            if run is None:
-                raise ValueError("No run found in runner. Please add one.")
-            tuning_runs = [run]
-
-        for run in tuning_runs:
-            if not run.built:
-                run.build(
-                    data_dir=self.data_dir,
-                    num_workers=self.num_workers,
-                    trainer_config=tuning_trainer_config
-                )
-            else:
-                print(f"Run {run.name} already built. Reusing existing build.")
-
-        if mode == 'iterative':
-            for run in tuning_runs:
-                self.train(
-                    run=run,
-                    trainer_config=tuning_trainer_config
-                )
+        if mode == TuningModes.ITERATIVE:
+            return self._iterative_tune(
+                runs=runs,
+                trainer_config=trainer_config,
+            )
+        elif mode == TuningModes.PARALLEL:
+            return self._optuna_tune(
+                objective=optuna_objective,
+                trainer_config=trainer_config,
+            )
         else:
-            raise NotImplementedError("Dynamically searching parameter space is not yet implemented")
-            pass
+            raise ValueError(f"Unknown mode {mode}")
 
     def test(
             self,
             run: Run | None = None,
             trainer_config: TrainerConfig | None = None
-    ):
+    ) -> list[dict[str, float]]:
+        """Returns a list of dicts containing the metrics for each test run."""
         if trainer_config is None:
             trainer_config = TrainerConfig(
                 logger=self.logger,
@@ -125,7 +124,7 @@ class Runner:
 
         run = self._check_for_test_run(run, trainer_config)
 
-        run.trainer.test(
+        return run.trainer.test(
             model=run.model,
             datamodule=run.data_module,
             ckpt_path="best"
@@ -136,7 +135,7 @@ class Runner:
             run: Run | None = None,
             trainer_config: TrainerConfig | None = None,
             data_loader: DataLoader | None = None
-    ):
+    ) -> list[torch.Tensor]:
         run = self._check_for_test_run(run, trainer_config)
 
         if data_loader is None:
@@ -144,7 +143,7 @@ class Runner:
         else:
             datamodule = None
 
-        run.trainer.predict(
+        return run.trainer.predict(
             model=run.model,
             dataloaders=data_loader,
             datamodule=datamodule
@@ -229,24 +228,48 @@ class Runner:
             print("Run already built. Reusing existing build.")
         return run
 
-    def _optuna_tune(self, runs: Iterable[Run] | None, config: TrainerConfig):
+    def _iterative_tune(self, runs: Iterable[Run] | None, trainer_config: TrainerConfig) -> list[dict[str, float]]:
+        if runs is None:
+            run = self.get_last_valid_run()
+            if run is None:
+                raise ValueError("No run found in runner. Please add one.")
+            runs = [run]
+
+        for run in runs:
+            if not run.built:
+                run.build(
+                    data_dir=self.data_dir,
+                    num_workers=self.num_workers,
+                    trainer_config=trainer_config
+                )
+            else:
+                print(f"Run {run.name} already built. Reusing existing build.")
+
+        metrics = []
+        for run in runs:
+            self.train(
+                run=run,
+                trainer_config=trainer_config
+            )
+            metrics.append(
+                self.test(
+                    run=run,
+                    trainer_config=None
+                )[0]
+            )
+        return metrics
+
+    def _optuna_tune(self, objective: Callable, trainer_config: OptunaTuneTrainerConfig) -> Study:
         study = optuna.create_study()
         study.optimize(
-            self._get_tuning_objective(runs, config),
-            n_trials=config.n_trials,
-            timeout=config.timeout,
-            n_jobs=config.n_jobs,
-            show_progress_bar=config.show_progress_bar
+            objective,
+            n_trials=trainer_config.num_trials,
+            timeout=trainer_config.timeout,
+            n_jobs=trainer_config.num_jobs,
+            show_progress_bar=trainer_config.show_progress_bar,
+            gc_after_trial=trainer_config.gc_after_trial,
         )
         return study
-
-    def _get_tuning_objective(self, runs: Iterable[Run] | None, config: TrainerConfig):
-        # TODO implement this using optuna
-        def objective(trial: Trial):
-            self.train(
-                run=None,
-                config=config
-            )
 
     def __enter__(self):
         return self

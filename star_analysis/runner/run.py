@@ -18,9 +18,9 @@ from star_analysis.utils.constants import CHECKPOINT_DIR
 
 @dataclass
 class TrainerConfig:
-    logger: Any
-    limit_train_batches: float | int | None = 100
-    limit_val_batches: float | int | None = 10
+    logger: Any | None
+    limit_train_batches: float | int | None = None
+    limit_val_batches: float | int | None = None
     max_epochs: int = 10
 
 
@@ -85,8 +85,34 @@ class Run:
         return self.__trained
 
     def build(self, data_dir: str, num_workers: int, trainer_config: TrainerConfig):
+        self._build_pipeline(
+            data_dir=data_dir, num_workers=num_workers, trainer_config=trainer_config
+        )
+
+    def rebuild(
+            self,
+            rebuild_data_module: bool = False,
+            rebuild_trainer: bool = True,
+            rebuild_model: bool = True,
+            rebuild_loss: bool = False,
+            data_dir: str | None = None, num_workers: int | None = None, trainer_config: TrainerConfig | None = None
+    ):
+        self.__built = False
+        self._build_pipeline(
+            rebuild_data_module, rebuild_trainer, rebuild_model, rebuild_loss,
+            data_dir, num_workers, trainer_config
+        )
+
+    def _build_pipeline(
+            self,
+            force_build_data_module: bool = False,
+            force_build_trainer: bool = False,
+            force_build_model: bool = False,
+            force_build_loss: bool = False,
+            data_dir: str | None = None, num_workers: int | None = None, trainer_config: TrainerConfig | None = None
+    ):
         if self.built:
-            print(f"Run {self.name} already built")
+            print(f"Run {self.name} already built. Try to rebuild.")
             return
 
         if self.config.model_config is None:
@@ -94,24 +120,24 @@ class Run:
         else:
             if self.name is None:
                 self.__name = f'run-{self.config.model_config.model_type}-{str(datetime.now())}'
-            if self.model is None:
-                self.__model = self._build_model()
-            if self.loss is None:
+            if self.loss is None or force_build_loss:
                 self.__loss = self._build_loss()
+            if self.model is None or force_build_model:
+                self.__model = self._build_model()
 
-        if self.data_module is None:
+        if self.data_module is None or force_build_data_module:
             self.__data_module = self._build_datamodule(data_dir, num_workers)
 
-        if self.trainer is None:
+        if self.trainer is None or force_build_trainer:
             self.__trainer = self._build_trainer(trainer_config)
 
         self.__built = True
 
-    def _build_model(self) -> LightningModule:
-        return self.config.model_config.get_model()
-
     def _build_loss(self) -> Module:
         return self.config.model_config.get_loss()
+
+    def _build_model(self) -> LightningModule:
+        return self.config.model_config.get_model(self.loss)
 
     def _build_datamodule(self, data_dir: str, num_workers: int):
         transform = get_transforms(self.config.augmentation)
@@ -132,7 +158,7 @@ class Run:
         )
         return SdssDataModule(module_config)
 
-    def _build_trainer(self, config: TrainerConfig):
+    def _build_trainer(self, config: TrainerConfig) -> Trainer:
         lr_monitor = LearningRateMonitor(logging_interval='step')
         checkpointing_callback = ModelCheckpoint(
             monitor='val_loss',
@@ -152,7 +178,7 @@ class Run:
             ],
             default_root_dir=CHECKPOINT_DIR
         )
-        tuner = Tuner(self.config.trainer)
+        tuner = Tuner(trainer)
         if self.config.model_config.batch_size is None:
             tuner.scale_batch_size(
                 self.config.model_config.model_module,

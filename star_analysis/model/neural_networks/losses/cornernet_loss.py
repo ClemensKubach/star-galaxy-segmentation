@@ -97,6 +97,7 @@ class CornerNetLoss(_Loss):
             mode: str
     ):
         super(CornerNetLoss, self).__init__()
+        raise NotImplementedError("This loss is not implemented yet.")
         self.mode = mode
         self.loss_fn = partial(
             _neg_loss,
@@ -107,7 +108,7 @@ class CornerNetLoss(_Loss):
         y_true = draw_umich_gaussian(
             y_true,
             (y_true.shape[0] // 2, y_true.shape[1] // 2),
-            2
+            1
         )
 
         loss = self.loss_fn(y_pred, y_true)

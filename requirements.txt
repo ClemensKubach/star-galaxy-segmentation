@@ -1,4 +1,4 @@
-pytorch
+torch
 torchvision
 astropy
 tqdm
@@ -11,7 +11,7 @@ matplotlib
 lightning
 StrEnum
 fire
-ray
+optuna
 pandas
 tensorboard
 segmentation-models-pytorch

@@ -5,22 +5,20 @@ from star_analysis.model.neural_networks.lightning import BaseLightningModule
 from star_analysis.model.neural_networks.model_config import ModelConfig
 
 
-class UNetModel(BaseLightningModule):
-
+class DeepLabV3Model(BaseLightningModule):
     def __init__(
             self,
             loss: Module,
             config: ModelConfig
     ):
-        unet = smp.Unet(
+        deeplab_v3 = smp.DeepLabV3(
             encoder_name="resnet18",
             encoder_weights="imagenet",
             in_channels=5,
             classes=config.num_classes,
         )
         super().__init__(
-            architecture=unet,
+            architecture=deeplab_v3,
             loss=loss,
             config=config
         )
-

@@ -46,7 +46,7 @@ def da_focal_loss_with_logits(
         https://github.com/open-mmlab/mmdetection/blob/master/mmdet/core/loss/losses.py
     """
     # target = target.type(output.type())
-    # target = target.to(dtype=output.dtype, device=output.device)
+    target = target.to(dtype=output.dtype, device=output.device)
 
     logpt = F.binary_cross_entropy_with_logits(output, target, reduction="none")
     # logpt2 = F.binary_cross_entropy_with_logits(1-output, target, reduction="none")
@@ -58,8 +58,8 @@ def da_focal_loss_with_logits(
         ),
         num_classes
     )
-    y = 1 - d
-    y = y.view(-1)
+    #y = 1 - d
+    #y = y.view(-1)
     d = d.view(-1)
 
     # compute the loss
@@ -132,6 +132,10 @@ class DAFocalLoss(_Loss):
 
         self.mode = mode
         self.ignore_index = ignore_index
+        self.num_classes = num_classes
+        self.batch_size = batch_size
+        self.image_shape = image_shape
+
         self.focal_loss_fn = partial(
             da_focal_loss_with_logits,
             batch_size=batch_size,
@@ -145,6 +149,8 @@ class DAFocalLoss(_Loss):
         )
 
     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+        y_pred = vectorize_image(y_pred, self.num_classes)
+        y_true = vectorize_image(y_true, self.num_classes)
 
         if self.mode in {BINARY_MODE, MULTILABEL_MODE}:
             y_true = y_true.view(-1)

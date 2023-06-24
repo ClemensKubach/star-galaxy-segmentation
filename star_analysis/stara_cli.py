@@ -1,12 +1,12 @@
 import fire as fire
 
-from star_analysis.runner.sdss_runner import SdssRunner
+from star_analysis.runner.runner import Runner
 
 
 class StaraCLI:
     """The command line interface for the Star Analysis package."""
 
-    class ml(SdssRunner):
+    class ml(Runner):
         pass
 
     class dataset:

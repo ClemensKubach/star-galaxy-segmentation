@@ -1,26 +1,18 @@
 import os
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Iterable, Callable
+from typing import Iterable
 
 import optuna
 import torch
-from lightning import Trainer, LightningModule
-from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning import LightningModule
 from lightning.pytorch.loggers import TensorBoardLogger
-from lightning.pytorch.tuner import Tuner
 from optuna import Trial
 from torch.utils.data import DataLoader
 
-from star_analysis.runner.run import Run, RunConfig, TrainerConfig
-from star_analysis.utils.callbacks import PlottingCallback
-from star_analysis.utils.constants import CHECKPOINT_DIR, DATAFILES_ROOT, LOGGING_DIR, MODEL_DIR
-
-
+from star_analysis.runner.run import Run, TrainerConfig
+from star_analysis.utils.constants import DATAFILES_ROOT, LOGGING_DIR, MODEL_DIR
 
 
 class Runner:
-
     def __init__(
             self,
             data_dir: str = DATAFILES_ROOT,
@@ -70,9 +62,14 @@ class Runner:
             run: Run | None = None,
             trainer_config: TrainerConfig | None = None
     ):
-        run = self._check_for_test_run(run, trainer_config)
+        if trainer_config is None:
+            trainer_config = TrainerConfig(
+                logger=self.logger
+            )
 
-        run.config.trainer.fit(
+        run = self._check_for_simple_run(run, trainer_config)
+
+        run.trainer.fit(
             model=run.model,
             datamodule=run.data_module
         )
@@ -83,6 +80,14 @@ class Runner:
             tuning_trainer_config: TrainerConfig | None = None,
             mode: str = 'iterative',
     ):
+        if tuning_trainer_config is None:
+            tuning_trainer_config = TrainerConfig(
+                logger=self.logger,
+                limit_train_batches=None,
+                limit_val_batches=None,
+                max_epochs=10
+            )
+
         if tuning_runs is None:
             run = self.get_last_valid_run()
             if run is None:
@@ -107,21 +112,21 @@ class Runner:
                 )
         else:
             raise NotImplementedError("Dynamically searching parameter space is not yet implemented")
-            study = optuna.create_study()
-            study.optimize(
-                self._get_tuning_objective(tune_runs, config),
-                n_trials=config.n_trials,
-                timeout=config.timeout,
-                n_jobs=config.n_jobs,
-                show_progress_bar=config.show_progress_bar
-            )
-            return study
+            pass
 
     def test(
             self,
             run: Run | None = None,
             trainer_config: TrainerConfig | None = None
     ):
+        if trainer_config is None:
+            trainer_config = TrainerConfig(
+                logger=self.logger,
+                limit_train_batches=None,
+                limit_val_batches=None,
+                max_epochs=1
+            )
+
         run = self._check_for_test_run(run, trainer_config)
 
         run.trainer.test(
@@ -187,7 +192,7 @@ class Runner:
             self,
             run: Run | None,
             trainer_config: TrainerConfig | None
-    )-> Run:
+    ) -> Run:
         if run is None:
             run = self.get_last_valid_run()
             if run is None:
@@ -225,6 +230,17 @@ class Runner:
         else:
             print("Run already built. Reusing existing build.")
         return run
+
+    def _optuna_tune(self, runs: Iterable[Run] | None, config: TrainerConfig):
+        study = optuna.create_study()
+        study.optimize(
+            self._get_tuning_objective(runs, config),
+            n_trials=config.n_trials,
+            timeout=config.timeout,
+            n_jobs=config.n_jobs,
+            show_progress_bar=config.show_progress_bar
+        )
+        return study
 
     def _get_tuning_objective(self, runs: Iterable[Run] | None, config: TrainerConfig):
         # TODO implement this using optuna

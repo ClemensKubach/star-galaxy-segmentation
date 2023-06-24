@@ -1,176 +1,47 @@
 import os
-from typing import Any
+from dataclasses import dataclass
 
-from lightning import LightningDataModule, Trainer
-from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
-from lightning.pytorch.tuner import Tuner
-from torch.utils.data import DataLoader
-from ray import tune
-from ray.tune import CLIReporter
-from ray.tune.schedulers import ASHAScheduler
+import torch
+from lightning import Trainer, LightningModule
 
-from star_analysis.data.augmentations import get_transforms, Augmentations
-from star_analysis.data.configs import SdssDatasetConfig, SdssDataModuleConfig
-from star_analysis.data.datamodules import SdssDataModule
-from star_analysis.dataprovider.sdss_dataprovider import SDSSDataProvider
+from star_analysis.data.augmentations import Augmentations
+from star_analysis.model.neural_networks.losses.types import LossType
+from star_analysis.model.neural_networks.model_config import ModelConfig
 from star_analysis.model.types import ModelTypes
-from star_analysis.runner.executable import Executable
-from star_analysis.utils.callbacks import PlottingCallback
-from star_analysis.utils.constants import CHECKPOINT_DIR, DATAFILES_ROOT
+from star_analysis.runner.run import RunConfig
+from star_analysis.runner.runner import Runner
+from star_analysis.utils.constants import DATAFILES_ROOT
 
 
-class SdssRunner(Executable):
-
+class SdssRunner(Runner):
     def __init__(
             self,
             data_dir: str = DATAFILES_ROOT,
-            model_type: ModelTypes = ModelTypes.UNET,
-            project_name: str = "sdss-tests",
-            batch_size: int = None,
-            learning_rate_init: float = None,
-
-            augmentation: Augmentations = Augmentations.NONE,
-            shuffle_train: bool = True,
-            train_size: float = 0.8,
-            workers: int = os.cpu_count(),
-            patch_size: int = 224,
-            use_mmap: bool = True
+            project_name: str = "sdss-project",
+            num_workers: int = os.cpu_count(),
     ):
-        super().__init__(
-            data_dir=data_dir,
-            model_type=model_type,
-            project_name=project_name,
-            batch_size=batch_size,
-            learning_rate_init=learning_rate_init
-        )
-
-        transform = get_transforms(augmentation)
-        dataset_config = SdssDatasetConfig(
-            data_dir=self.data_dir,
-            patch_shape=(patch_size, patch_size),
-            prepare=False,
-            run=SDSSDataProvider.FIXED_VALIDATION_RUN,
-            transform=transform,
-            use_mmap=use_mmap
-        )
-        self.module_config = SdssDataModuleConfig(
-            dataset_config=dataset_config,
-            batch_size=self.batch_size,
-            shuffle_train=shuffle_train,
-            train_size=train_size,
-            num_workers=workers
-        )
-        self.trainer = None
-
-    def _setup_data(self) -> LightningDataModule:
-        return SdssDataModule(self.module_config)
-
-    def train(
-            self,
-            max_epochs=15,
-            limit_train_batches=None,
-            limit_val_batches=None,
-    ):
-        lr_monitor = LearningRateMonitor(logging_interval='step')
-        checkpointing_callback = ModelCheckpoint(
-            dirpath=CHECKPOINT_DIR,
-            monitor='val_loss',
-            save_top_k=3
-        )
-        self.trainer = Trainer(
-            max_epochs=max_epochs,
-            logger=self.logger,
-            num_nodes=-1,
-            limit_train_batches=limit_train_batches,
-            limit_val_batches=limit_val_batches,
-            enable_checkpointing=True,
-            callbacks=[
-                PlottingCallback(),
-                lr_monitor,
-                checkpointing_callback
-            ],
-            default_root_dir=CHECKPOINT_DIR
-        )
-        tuner = Tuner(self.trainer)
-        if self.batch_size is None:
-            tuner.scale_batch_size(
-                self.model, mode="power", datamodule=self.data_module)
-        if self.learning_rate_init is None:
-            tuner.lr_find(self.model, datamodule=self.data_module)
-        self.trainer.fit(
-            model=self.model,
-            datamodule=self.data_module
-        )
-
-    def tune(
-            self,
-            max_epochs=10,
-    ):
-        # Define the hyperparameter search space
-        config = {
-            'learning_rate': tune.loguniform(1e-4, 1e-2)
-        }
-
-        # Define the objective function for hyperparameter tuning
-        def objective(config):
-            self.trainer = Trainer(
-                max_epochs=max_epochs,
-                logger=self.logger,
-                num_nodes=-1,
-                callbacks=[
-                    PlottingCallback()
-                ],  # [early_stopping]
-                default_root_dir=CHECKPOINT_DIR
-            )
-            tuner = Tuner(self.trainer)
-            tuner.scale_batch_size(
-                self.model, mode="power", datamodule=self.data_module)
-            tuner.lr_find(self.model)
-            self.trainer.fit(
-                model=self.model,
-                datamodule=self.data_module
-            )
-            return self.trainer.callback_metrics['val_loss']
-
-        # Set up the Ray Tune scheduler
-        scheduler = ASHAScheduler(
-            max_t=10,
-            grace_period=1,
-            reduction_factor=2
-        )
-        reporter = CLIReporter(metric_columns=["val_loss"])
-        # Perform hyperparameter tuning with Ray Tune
-        analysis = tune.run(
-            objective,
-            config=config,
-            num_samples=10,
-            scheduler=scheduler,
-            progress_reporter=reporter
-        )
-        # Retrain the model with the best hyperparameters
-        best_config = analysis.get_best_config(metric='val_loss')
-        # best_model = MyModel(best_config['input_size'], best_config['hidden_size'], best_config['output_size'])
-        # trainer = Trainer(max_epochs=10)
-        # trainer.fit(best_model)
-
-    def test(self):
-        self.trainer.test(
-            ckpt_path="best"
-        )
-
-    def predict(self, data_loader: DataLoader):
-        self.trainer.predict(
-            model=self.model,
-            dataloaders=data_loader
-        )
+        super().__init__(data_dir=data_dir, project_name=project_name, num_workers=num_workers)
 
 
-if __name__ == '__main__':
-    runner = SdssRunner(
-        shuffle_train=True,
-        model_type=ModelTypes.UNET,
-        batch_size=32,
-        learning_rate_init=1e-3,
-    )
-    runner.init()
-    runner.train(limit_train_batches=None, limit_val_batches=None, max_epochs=10)
+@dataclass
+class SdssModelConfig(ModelConfig):
+    learning_rate: float = 1e-3
+    batch_size: int = 32
+    image_shape: tuple[int, int] = (224, 224)
+    num_classes: int = 2
+    model_type = ModelTypes.UNET
+    model_module: LightningModule | None = None
+    loss_type: LossType = LossType.DICE
+    loss_mode: str | None = 'multilabel'
+    loss_module: torch.nn.Module | None = None
+
+
+@dataclass
+class SdssRunConfig(RunConfig):
+    model_config: ModelConfig | None = SdssModelConfig()
+    augmentation: Augmentations = Augmentations.NONE
+    shuffle_train: bool = True
+    train_size: float = 0.8
+    patch_size: int = 224
+    trainer: Trainer | None = None
+    use_mmap: bool = True

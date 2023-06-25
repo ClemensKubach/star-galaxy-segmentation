@@ -115,17 +115,4 @@ def get_transforms(augmentations: Augmentations) -> transforms.Compose | None:
     if transf is None:
         return None
 
-    #return transforms.Compose([PreparePatch()] + transf + [PreparePatch()])
     return transforms.Compose(transf)
-
-
-if __name__ == '__main__':
-    comp = transforms.Compose([
-        PreparePatch(),
-        transforms.RandomRotation(degrees=90),
-        ]
-    )
-    i = torch.zeros((1, 3, 3))
-    i[0, 0, 0] = 1
-    i[0, 1, 1] = 2
-    out = comp(i)

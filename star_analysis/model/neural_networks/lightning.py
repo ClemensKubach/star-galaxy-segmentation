@@ -95,6 +95,7 @@ class BaseLightningModule(LightningModule):
         }
 
         self.log_dict(metrics, prog_bar=True, logger=True)
+        return metrics
 
     def training_step(self, batch, batch_idx):
         result = self.shared_step(batch, stage="train")
@@ -108,19 +109,23 @@ class BaseLightningModule(LightningModule):
 
     def test_step(self, batch, batch_idx):
         result = self.shared_step(batch, stage="test")
+        self._outputs_test.append(result)
         return result
 
     def on_train_epoch_end(self):
-        self.shared_epoch_end(self._outputs_train, "train")
+        metrics = self.shared_epoch_end(self._outputs_train, "train")
         self._outputs_train = []
+        return metrics
 
     def on_validation_epoch_end(self):
-        self.shared_epoch_end(self._outputs_val, "val")
+        metrics = self.shared_epoch_end(self._outputs_val, "val")
         self._outputs_val = []
+        return metrics
 
     def on_test_epoch_end(self):
-        self.shared_epoch_end(self._outputs_test, "test")
+        metrics = self.shared_epoch_end(self._outputs_test, "test")
         self._outputs_test = []
+        return metrics
 
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)

@@ -8,9 +8,10 @@ from torch.nn import Module
 from star_analysis.model.neural_networks.losses.cornernet_loss import CornerNetLoss
 from star_analysis.model.neural_networks.losses.da_dice_loss import DADiceLoss
 from star_analysis.model.neural_networks.losses.da_focal_loss import DAFocalLoss
-from star_analysis.model.neural_networks.losses.da_mse_loss import DistanceLoss
+from star_analysis.model.neural_networks.losses.da_mse_loss import DAMseLoss
 from star_analysis.model.neural_networks.losses.dice_loss import DiceLoss
 from star_analysis.model.neural_networks.losses.focal_loss import FocalLoss
+from star_analysis.model.neural_networks.losses.mse_loss import MseLoss
 from star_analysis.model.neural_networks.losses.types import LossType
 from star_analysis.model.types import ModelTypes
 
@@ -44,6 +45,10 @@ class ModelConfig:
 
     def get_loss(self):
         match self.loss_type:
+            case LossType.MSE:
+                return MseLoss(
+                    mode=self.loss_mode
+                )
             case LossType.FOCAL:
                 return FocalLoss(
                     mode=self.loss_mode,
@@ -55,7 +60,7 @@ class ModelConfig:
                     num_classes=self.num_classes,
                 )
             case LossType.DA_MSE:
-                return DistanceLoss(
+                return DAMseLoss(
                     mode=self.loss_mode
                 )
             case LossType.DA_FOCAL:

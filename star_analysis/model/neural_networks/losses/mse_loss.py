@@ -3,10 +3,10 @@ from segmentation_models_pytorch.losses import MULTICLASS_MODE
 from torch import nn
 import torch.nn.functional as F
 
-from star_analysis.model.neural_networks.losses.utils import compute_distance_map, aggregate_loss
+from star_analysis.model.neural_networks.losses.utils import aggregate_loss
 
 
-class DAMseLoss(nn.Module):
+class MseLoss(nn.Module):
 
     def __init__(self, mode: str, from_logits: bool = True):
         """
@@ -31,12 +31,8 @@ class DAMseLoss(nn.Module):
             else:
                 y_pred = F.logsigmoid(y_pred).exp()
         else:
-            raise NotImplementedError("DistanceLoss only supports from_logits=True")
+            raise NotImplementedError("Only supports from_logits=True")
 
-        sqe_loss = torch.pow(y_pred - y_true, 2)
-
-        # Distance penalty
-        distance_map = compute_distance_map(y_true)
-        loss = torch.mean((1 + distance_map) * sqe_loss, dim=(0, 2, 3))
+        loss = torch.mean(torch.pow(y_pred - y_true, 2), dim=(0, 2, 3))
 
         return aggregate_loss(loss)

@@ -22,6 +22,11 @@ class TuningModes(StrEnum):
     PARALLEL = auto()
 
 
+class LoadingModes(StrEnum):
+    CHECKPOINT = auto()
+    PT_MODEL = auto()
+
+
 class Runner:
     def __init__(
             self,
@@ -162,22 +167,28 @@ class Runner:
         else:
             raise ValueError("Model not trained yet. Please train it first.")
 
-    # TODO
-    def load_model(self, name: str = None, path: str = None, mode: str = 'model') -> LightningModule:
-        raise NotImplementedError("Loading models is not yet implemented")
-        if name:
-            checkpoint = torch.load(os.path.join(MODEL_DIR, name))
+    def load_model(
+            self, mode: LoadingModes = LoadingModes.PT_MODEL,
+            filename: str = None,
+            path: str = None
+    ) -> LightningModule:
+        print("Loading is not yet integrated.")
+        if filename:
+            checkpoint = torch.load(os.path.join(MODEL_DIR, filename))
         elif path:
             checkpoint = torch.load(path)
         else:
             raise ValueError(f"Either name or path must be specified")
 
+        # TODO create run for loaded model
+        model = None
         if mode == 'ckpt':
-            self.model_module.load_state_dict(checkpoint['model'])
-            self.model_module.optimizer.load_state_dict(checkpoint['optimizer'])
+            model.load_state_dict(checkpoint['model'])
+            model.optimizer.load_state_dict(checkpoint['optimizer'])
         elif mode == 'model':
-            self.model_module = checkpoint
-        return self.model_module
+            model = checkpoint
+
+        return model
 
     def close(self):
         raise NotImplementedError(f"Close not implemented yet")

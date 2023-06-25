@@ -5,7 +5,6 @@ tqdm
 bs4
 lxml
 scikit-learn
-seaborn
 jupyter
 matplotlib
 lightning
@@ -16,3 +15,5 @@ pandas
 tensorboard
 segmentation-models-pytorch
 distance-map
+seaborn
+fastai

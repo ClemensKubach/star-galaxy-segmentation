@@ -4,7 +4,8 @@ from star_analysis.model.types import ModelTypes
 from star_analysis.model.neural_networks.losses.types import LossType
 from star_analysis.data.augmentations import Augmentations
 
-if __name__ == '__main__':
+
+def execute():
     runner = SdssRunner()
 
     run = Run(
@@ -15,7 +16,7 @@ if __name__ == '__main__':
                 model_type=ModelTypes.UNET,
                 loss_type=LossType.DICE
             ),
-            augmentation=Augmentations.NONE,
+            augmentation=Augmentations.ROTATE,
             shuffle_train=True
         )
     )
@@ -25,7 +26,18 @@ if __name__ == '__main__':
         run=run,
         trainer_config=TrainerConfig(
             logger=None,
-            max_epochs=10,
+            max_epochs=1,
         )
     )
-    runner.save_model(run)
+    # runner.save_model(run)
+    #
+    # test_results = runner.test(
+    #     run=run,
+    #     trainer_config=None
+    # )
+    # print(test_results)
+    # pass
+
+
+if __name__ == '__main__':
+    execute()

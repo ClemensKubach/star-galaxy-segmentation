@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import fastai
 import numpy as np
 import torch
 from torchvision.transforms import transforms
 from enum import Enum
 
 from star_analysis.service.statistics_service import StatisticsService
+from star_analysis.utils.conversions import relocate_channels
 
 
 class Augmentations(Enum):
@@ -23,7 +25,8 @@ class BalanceClasses:
         self.__cls_distribution = StatisticsService(
         ).get_distribution_per_class(calculate=False)
 
-    def __call__(self, image: np.ndarray):
+    def __call__(self, image: torch.Tensor) -> torch.Tensor:
+        image = image.numpy()
         local_dist = image[:, :, self.__labels_start:].sum(axis=(0, 1))
 
         needed_class = np.argmin(local_dist, axis=-1)
@@ -50,15 +53,23 @@ class BalanceClasses:
         chosen_pixels = coords[chosen_ids]
 
         image[chosen_pixels[:, 0], chosen_pixels[:, 1],
-              :self.__labels_start] = random_cls_values
+        :self.__labels_start] = random_cls_values
 
         image[chosen_pixels[:, 0], chosen_pixels[:, 1],
-              self.__labels_start + needed_class] = 1
+        self.__labels_start + needed_class] = 1
+
+        image = torch.from_numpy(image)
 
         return image
 
     def __repr__(self):
         return f"BalanceClasses({self.__labels_start})"
+
+
+class PreparePatch:
+
+    def __call__(self, image: torch.Tensor):
+        return relocate_channels(image)
 
 
 def get_transforms(augmentations: Augmentations) -> transforms.Compose | None:
@@ -73,22 +84,26 @@ def get_transforms(augmentations: Augmentations) -> transforms.Compose | None:
         pass
     elif augmentations == Augmentations.ROTATE:
         transf = [
-            # Random rotations up to 30 degrees
-            transforms.RandomRotation(degrees=30),
+            PreparePatch(),
+            transforms.RandomRotation(degrees=45),
+            PreparePatch()
         ]
     elif augmentations == Augmentations.FLIP:
         transf = [
+            PreparePatch(),
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
+            PreparePatch()
         ]
     elif augmentations == Augmentations.ZOOM:
         raise NotImplementedError("Zoom not implemented")
     elif augmentations == Augmentations.ROTATE_FLIP:
         transf = [
-            # Random rotations up to 30 degrees
-            transforms.RandomRotation(degrees=30),
+            PreparePatch(),
+            transforms.RandomRotation(degrees=45),
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
+            PreparePatch()
         ]
     elif augmentations == Augmentations.BALANCE_CLASSES:
         transf = [
@@ -100,4 +115,17 @@ def get_transforms(augmentations: Augmentations) -> transforms.Compose | None:
     if transf is None:
         return None
 
-    return transforms.Compose(transf + [transforms.ToTensor()])
+    #return transforms.Compose([PreparePatch()] + transf + [PreparePatch()])
+    return transforms.Compose(transf)
+
+
+if __name__ == '__main__':
+    comp = transforms.Compose([
+        PreparePatch(),
+        transforms.RandomRotation(degrees=90),
+        ]
+    )
+    i = torch.zeros((1, 3, 3))
+    i[0, 0, 0] = 1
+    i[0, 1, 1] = 2
+    out = comp(i)

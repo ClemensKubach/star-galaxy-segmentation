@@ -75,15 +75,16 @@ class Sdss(data.Dataset):
             raise ValueError(f"Field with index {field_idx} is None.")
 
         patch_x, patch_y = self._get_patch(field, patch_idx)
-        combined_patch = np.concatenate((patch_x, patch_y), axis=-1)
 
         if self.config.transform:
-            augmented_patch = self.config.transform(combined_patch)
-            patch_x = augmented_patch[:, :, :patch_x.shape[-1]]
-            patch_y = augmented_patch[:, :, patch_x.shape[-1]:]
+            combined_patch = np.concatenate((patch_x, patch_y), axis=-1)
+            augmented_patch = self.config.transform(
+                torch.from_numpy(combined_patch)
+            )
+            patch_x = augmented_patch[..., :patch_x.shape[-1]]
+            patch_y = augmented_patch[..., patch_x.shape[-1]:]
         else:
-            patch_x, patch_y = torch.as_tensor(
-                patch_x), torch.as_tensor(patch_y)
+            patch_x, patch_y = torch.as_tensor(patch_x), torch.as_tensor(patch_y)
 
         return patch_x, patch_y
 

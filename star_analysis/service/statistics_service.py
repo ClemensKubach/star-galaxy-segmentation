@@ -10,8 +10,7 @@ import matplotlib.pyplot as plt
 
 class StatisticsService:
     def __init__(self, run: str = SDSSDataProvider.FIXED_VALIDATION_RUN) -> None:
-        self.__data_provider = SDSSDataProvider(
-            ImageDownloader('/Users/leopinetzki/data'))
+        self.__data_provider = SDSSDataProvider()
         self.__data_provider.prepare(run)
 
     def get_channel_mean_variance(self, calculate: bool = False) -> tuple[np.ndarray, np.ndarray]:

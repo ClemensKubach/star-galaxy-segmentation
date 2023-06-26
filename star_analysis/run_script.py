@@ -26,10 +26,10 @@ def execute():
         run=run,
         trainer_config=TrainerConfig(
             logger=runner.logger,
-            max_epochs=10,
-            limit_train_batches=None,
-            limit_val_batches=None,
-            log_every_n_steps=50
+            max_epochs=1,
+            limit_train_batches=10,
+            limit_val_batches=10,
+            log_every_n_steps=1
         )
     )
     runner.save_model(run)

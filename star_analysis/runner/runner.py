@@ -85,6 +85,10 @@ class Runner:
             run = self.runs[last_valid_run_id]
         return run
 
+    def sorted(self, metric: str = 'test_loss', reverse: bool = True):
+        valid_runs = [r for r in self.runs.values() if r is not None and r.tested and metric in r.get_evaluation()]
+        return sorted(valid_runs, key=lambda r: r.get_evaluation()[metric], reverse=reverse)
+
     def train(
             self,
             run: Run | None = None,
@@ -143,12 +147,7 @@ class Runner:
             )
 
         run = self._check_for_test_run(run, trainer_config)
-
-        return run.trainer.test(
-            model=run.model,
-            datamodule=run.data_module,
-            ckpt_path=None,  # "best"
-        )
+        return run.eval(ckpt_path=None)
 
     def predict(
             self,

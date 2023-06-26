@@ -57,12 +57,15 @@ class Run:
         self.__config = config
         self.__built = False
         self.__trained = False
+        self.__tested = False
 
         self.__data_module: LightningDataModule | None = datamodule
         self.__trainer: Trainer | None = config.trainer
         self.__tuner: Tuner | None = None
         self.__model: LightningModule | None = config.model_config.model_module
         self.__loss: Module | None = config.model_config.loss_module
+
+        self.__evaluation: list[dict[str, Any]] = []
 
     @property
     def name(self) -> str:
@@ -96,6 +99,17 @@ class Run:
     def trained(self) -> bool:
         return self.__trained
 
+    @property
+    def tested(self) -> bool:
+        return self.__tested
+
+    def get_evaluation(self, idx: int | None = None):
+        if idx is None:
+            return self.__evaluation[-1]
+        if idx < 0:
+            return self.__evaluation
+        return self.__evaluation[idx]
+
     def build(self, data_dir: str, num_workers: int, trainer_config: TrainerConfig):
         self._build_pipeline(
             data_dir=data_dir, num_workers=num_workers, trainer_config=trainer_config
@@ -113,6 +127,16 @@ class Run:
             datamodule=self.data_module
         )
         self.__trained = True
+
+    def eval(self, ckpt_path: str | None = None) -> list[dict[str, Any]]:
+        result = self.trainer.test(
+            model=self.model,
+            datamodule=self.data_module,
+            ckpt_path=ckpt_path
+        )
+        self.__evaluation.append(*result)
+        self.__tested = True
+        return result
 
     def rebuild(
             self,

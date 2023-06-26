@@ -14,7 +14,7 @@ def execute():
                 learning_rate=1e-3,
                 batch_size=32, # 80,
                 model_type=ModelTypes.UNET,
-                loss_type=LossType.DICE
+                loss_type=LossType.DA_DICE
             ),
             augmentation=Augmentations.NONE,
             shuffle_train=True

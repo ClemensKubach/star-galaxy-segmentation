@@ -2,6 +2,7 @@ from typing import Literal
 
 import numpy as np
 import torch
+from PIL import Image
 from lightning import Callback
 from lightning.pytorch.loggers import TensorBoardLogger
 import io
@@ -11,7 +12,7 @@ from star_analysis.utils.conversions import relocate_channels
 
 def _plotting(state: str, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0, only_idx: int = 0) -> None:
     def plot_obj(image, labels, predictions, obj: Literal["Galaxies", "Stars"]):
-        image = torch.clamp(image, min=0, max=1)
+        image = torch.clamp(image, min=0, max=1).numpy()
 
         if obj == "Galaxies":
             obj_idx = 0
@@ -23,19 +24,22 @@ def _plotting(state: str, trainer, pl_module, outputs, batch, batch_idx, dataloa
         coords_obj_pred = torch.nonzero(predictions[:, :, obj_idx])
         coords_obj_true = torch.nonzero(labels[:, :, obj_idx])
 
-        plt.figure()
-        plt.imshow(image, origin='lower')
-        plt.scatter(coords_obj_true[:, 0],
-                    coords_obj_true[:, 1], c='Blue', label="True", s=3)
-        plt.scatter(coords_obj_pred[:, 0],
-                    coords_obj_pred[:, 1], c='Red', label="Pred", s=1)
-        plt.legend()
+        fig, ax = plt.subplots()
+        ax.imshow(image, origin='upper')
+        ax.scatter(coords_obj_true[:, 0],
+                   coords_obj_true[:, 1], c='Blue', label="True", s=3)
+        ax.scatter(coords_obj_pred[:, 0],
+                   coords_obj_pred[:, 1], c='Red', label="Pred", s=1)
+        ax.legend()
 
         buffer = io.BytesIO()
         plt.savefig(buffer, format='png')
+        plt.close(fig)
         buffer.seek(0)
-        loaded_image = plt.imread(buffer, format='png') #np.flipud(plt.imread(buffer, format='png'))
-        #print(loaded_image.shape)
+        # loaded_image = plt.imread(buffer, format='png') #np.flipud(plt.imread(buffer, format='png'))
+        # print(loaded_image.shape)
+        pil_image = Image.open(buffer)
+        loaded_image = np.array(pil_image)
 
         tb_logger.add_image(f'{obj}-{state}', loaded_image,
                             global_step=trainer.global_step, dataformats='WHC')

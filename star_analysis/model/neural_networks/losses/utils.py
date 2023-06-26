@@ -3,8 +3,11 @@ import torch
 from distancemap import distance_map_from_binary_matrix
 
 
-def aggregate_loss(loss: torch.Tensor) -> torch.Tensor:
-    return loss.mean()
+def aggregate_loss(loss: torch.Tensor, reduction: str = "mean") -> torch.Tensor:
+    if reduction == "mean":
+        return loss.mean()
+    elif reduction == "sum":
+        return loss.sum()
 
 
 def _normalize(d: torch.Tensor, max_possible_distance: int, normed: bool = False):

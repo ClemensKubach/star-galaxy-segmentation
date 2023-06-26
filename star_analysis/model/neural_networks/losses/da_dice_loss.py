@@ -3,7 +3,7 @@ from typing import Optional, List
 import torch
 
 from star_analysis.model.neural_networks.losses.dice_loss import DiceLoss
-from star_analysis.model.neural_networks.losses.utils import compute_distance_map
+from star_analysis.model.neural_networks.losses.utils import compute_distance_map, aggregate_loss
 from star_analysis.utils.conversions import vectorize_image
 
 
@@ -40,4 +40,4 @@ class DADiceLoss(DiceLoss):
         y_true = vectorize_image(y_true, self.num_classes)
 
         dice_loss = super().forward(y_pred, y_true)
-        return (1 + d) * dice_loss
+        return aggregate_loss((1 + d) * dice_loss)

@@ -103,14 +103,22 @@ class BaseLightningModule(LightningModule):
         for k, v in additional_metrics.items():
             self.log(k, v, prog_bar=False, logger=True)
 
+        if stage == "train":
+            return loss
+        else:
+            return pred_mask
+
     def training_step(self, batch, batch_idx):
-        self.shared_step(batch, stage="train")
+        out = self.shared_step(batch, stage="train")
+        return out
 
     def validation_step(self, batch, batch_idx):
-        self.shared_step(batch, stage="val")
+        out = self.shared_step(batch, stage="val")
+        return out
 
     def test_step(self, batch, batch_idx):
-        self.shared_step(batch, stage="test")
+        out = self.shared_step(batch, stage="test")
+        return out
 
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)

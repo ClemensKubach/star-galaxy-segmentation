@@ -197,7 +197,9 @@ class SDSSDataProvider:
         for run, run_data in self.__data_files.items():
             for camcol, camcol_data in run_data.items():
                 for field, field_data in camcol_data.items():
-                    if field == SDSSDataProvider.FIXED_VALIDATION_FIELD and camcol == SDSSDataProvider.FIXED_VALIDATION_CAMCOL and run == SDSSDataProvider.FIXED_VALIDATION_FIELD:
+                    if field.lstrip('0') == SDSSDataProvider.FIXED_VALIDATION_FIELD.lstrip('0') \
+                            and camcol.lstrip('0') == SDSSDataProvider.FIXED_VALIDATION_CAMCOL.lstrip('0') \
+                            and run.lstrip('0') == SDSSDataProvider.FIXED_VALIDATION_RUN.lstrip('0'):
                         if not self.include_test_set:
                             continue
                     else:
@@ -206,6 +208,7 @@ class SDSSDataProvider:
                     self.__data_as_list.append(
                         (field_data, self.__label_files[run][camcol])
                     )
+        print(f"Found {len(self.__data_as_list)} data/label pairs")
         self.__indexed_data = dict(enumerate(self.__data_as_list))
 
     def __create_object_map(self, objects: list[Union[ImageFile, LabelFile]]) -> dict:

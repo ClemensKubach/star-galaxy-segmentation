@@ -1,7 +1,9 @@
 import segmentation_models_pytorch as smp
 import torch
+import torchmetrics
 from lightning import LightningModule
 from lightning.pytorch.cli import ReduceLROnPlateau
+from segmentation_models_pytorch.utils.metrics import Accuracy
 
 from star_analysis.model.neural_networks.model_config import ModelConfig
 from star_analysis.utils.conversions import vectorize_image, relocate_channels
@@ -62,70 +64,89 @@ class BaseLightningModule(LightningModule):
         pred_mask = (prob_mask > 0.5).float()
 
         tp, fp, fn, tn = smp.metrics.get_stats(
-            output=vectorize_image(pred_mask, self.__config.num_classes).long(),
-            target=vectorize_image(mask, self.__config.num_classes).long(),
-            mode=self.__config.loss_mode
+            output=vectorize_image(pred_mask, self.config.num_classes).long(),
+            target=vectorize_image(mask, self.config.num_classes).long(),
+            mode=self.config.loss_mode,
+            num_classes=self.config.num_classes,
         )
         f1 = smp.metrics.f1_score(tp, fp, fn, tn, reduction="micro")
-        metrics = {
-            "loss": loss,
-            "tp": tp,
-            "fp": fp,
-            "fn": fn,
-            "tn": tn,
+
+        tp_class0 = torch.sum(tp[:, 0])
+        tp_class1 = torch.sum(tp[:, 1])
+
+        fp_class0 = torch.sum(fp[:, 0])
+        fp_class1 = torch.sum(fp[:, 1])
+
+        fn_class0 = torch.sum(fn[:, 0])
+        fn_class1 = torch.sum(fn[:, 1])
+
+        tn_class0 = torch.sum(tn[:, 0])
+        tn_class1 = torch.sum(tn[:, 1])
+
+        f1_class0 = smp.metrics.f1_score(tp_class0, fp_class0, fn_class0, tn_class0, reduction="micro")
+        f1_class1 = smp.metrics.f1_score(tp_class1, fp_class1, fn_class1, tn_class1, reduction="micro")
+
+        console_metrics = {
+            f"{stage}_loss": loss,
+            f"{stage}_f1": f1,
+            f"{stage}_f1_class0": f1_class0,
+            f"{stage}_f1_class1": f1_class1,
         }
-        log_metrics = {
-            "loss": loss,
-            "f1": f1,
+        additional_metrics = {
+            f"{stage}_tp": torch.sum(tp),
+            f"{stage}_fp": torch.sum(fp),
+            f"{stage}_fn": torch.sum(fn),
+            f"{stage}_tn": torch.sum(tn),
         }
-        self.log_dict(log_metrics, on_step=True, on_epoch=False, prog_bar=True, logger=False)
-        return metrics
+        for k, v in console_metrics.items():
+            self.log(k, v, prog_bar=True, logger=True)
+        for k, v in additional_metrics.items():
+            self.log(k, v, prog_bar=False, logger=True)
+        # self.log(console_metrics, prog_bar=True, logger=True)
+        # self.log(additional_metrics, prog_bar=False, logger=True)
 
-    def shared_epoch_end(self, outputs, stage):
-        tp = torch.cat([x["tp"] for x in outputs])
-        fp = torch.cat([x["fp"] for x in outputs])
-        fn = torch.cat([x["fn"] for x in outputs])
-        tn = torch.cat([x["tn"] for x in outputs])
-
-        dataset_f1 = smp.metrics.f1_score(tp, fp, fn, tn, reduction="micro")
-
-        metrics = {
-            f"{stage}_loss": torch.stack([x["loss"] for x in outputs]).mean(),
-            f"{stage}_dataset_f1": dataset_f1,
-        }
-
-        self.log_dict(metrics, prog_bar=True, logger=True)
-        return metrics
+    # def shared_epoch_end(self, outputs, stage):
+    #     tp = torch.cat([x["tp"] for x in outputs])
+    #     fp = torch.cat([x["fp"] for x in outputs])
+    #     fn = torch.cat([x["fn"] for x in outputs])
+    #     tn = torch.cat([x["tn"] for x in outputs])
+    #
+    #     dataset_f1 = smp.metrics.f1_score(tp, fp, fn, tn, reduction="micro")
+    #
+    #     metrics = {
+    #         f"{stage}_epoch_loss": torch.stack([x["loss"] for x in outputs]).mean(),
+    #         f"{stage}_epoch_f1": dataset_f1,
+    #     }
+    #
+    #     self.log_dict(metrics, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+    #     return metrics
 
     def training_step(self, batch, batch_idx):
-        result = self.shared_step(batch, stage="train")
-        self._outputs_train.append(result)
-        return result
+        self.shared_step(batch, stage="train")
+        # self._outputs_train.append(result)
 
     def validation_step(self, batch, batch_idx):
-        result = self.shared_step(batch, stage="val")
-        self._outputs_val.append(result)
-        return result
+        self.shared_step(batch, stage="val")
+        # self._outputs_val.append(result)
 
     def test_step(self, batch, batch_idx):
-        result = self.shared_step(batch, stage="test")
-        self._outputs_test.append(result)
-        return result
+        self.shared_step(batch, stage="test")
+        # self._outputs_test.append(result)
 
-    def on_train_epoch_end(self):
-        metrics = self.shared_epoch_end(self._outputs_train, "train")
-        self._outputs_train = []
-        return metrics
+    # def on_train_epoch_end(self):
+    #     metrics = self.shared_epoch_end(self._outputs_train, "train")
+    #     self._outputs_train = []
+    #     #return metrics
+    #
+    # def on_validation_epoch_end(self):
+    #     metrics = self.shared_epoch_end(self._outputs_val, "val")
+    #     self._outputs_val = []
+    #     #return metrics
 
-    def on_validation_epoch_end(self):
-        metrics = self.shared_epoch_end(self._outputs_val, "val")
-        self._outputs_val = []
-        return metrics
-
-    def on_test_epoch_end(self):
-        metrics = self.shared_epoch_end(self._outputs_test, "test")
-        self._outputs_test = []
-        return metrics
+    # def on_test_epoch_end(self):
+    #     metrics = self.shared_epoch_end(self._outputs_test, "test")
+    #     self._outputs_test = []
+    #     return metrics
 
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)

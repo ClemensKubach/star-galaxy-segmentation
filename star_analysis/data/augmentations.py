@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import fastai
 import numpy as np
 import torch
 from torchvision.transforms import transforms
@@ -81,7 +80,7 @@ def get_transforms(augmentations: Augmentations) -> transforms.Compose | None:
     """
     transf = None
     if augmentations == Augmentations.NONE:
-        pass
+        return None
     elif augmentations == Augmentations.ROTATE:
         transf = [
             PreparePatch(),
@@ -111,8 +110,5 @@ def get_transforms(augmentations: Augmentations) -> transforms.Compose | None:
         ]
     else:
         raise ValueError(f"Unknown augmentation: {augmentations}")
-
-    if transf is None:
-        return None
 
     return transforms.Compose(transf)

@@ -32,8 +32,7 @@ class SdssDataModule(LightningDataModule):
                 config.dataset_config,
                 include_train_set=False,
                 include_test_set=True
-            ),
-            # provider=self.full_train_dataset.provider
+            )
         )
 
     def prepare_data(self):
@@ -74,7 +73,7 @@ class SdssDataModule(LightningDataModule):
     def test_dataloader(self):
         return DataLoader(
             self.test_dataset,
-            batch_size=self.config.batch_size,
+            batch_size=1,  # self.config.batch_size,
             num_workers=self.config.num_workers,
             shuffle=False,
             pin_memory=True,

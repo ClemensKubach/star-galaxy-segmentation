@@ -12,11 +12,11 @@ def execute():
         SdssRunConfig(
             model_config=SdssModelConfig(
                 learning_rate=1e-3,
-                batch_size=96,
+                batch_size=80,
                 model_type=ModelTypes.UNET,
                 loss_type=LossType.DICE
             ),
-            augmentation=Augmentations.ROTATE,
+            augmentation=Augmentations.NONE,
             shuffle_train=True
         )
     )
@@ -25,18 +25,20 @@ def execute():
     runner.train(
         run=run,
         trainer_config=TrainerConfig(
-            logger=None,
-            max_epochs=1,
+            logger=runner.logger,
+            max_epochs=10,
+            limit_train_batches=None,
+            limit_val_batches=None,
+            log_every_n_steps=50
         )
     )
-    # runner.save_model(run)
-    #
-    # test_results = runner.test(
-    #     run=run,
-    #     trainer_config=None
-    # )
-    # print(test_results)
-    # pass
+    runner.save_model(run)
+
+    result_dict = runner.test(
+        run=run,
+        trainer_config=None,
+    )
+    print(result_dict)
 
 
 if __name__ == '__main__':

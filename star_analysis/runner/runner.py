@@ -59,6 +59,19 @@ class Runner:
         self.runs[run_id] = run
         return run_id
 
+    def prebuild_run(self, run: Run):
+        return run.prebuild(
+            data_dir=self.data_dir,
+            num_workers=self.num_workers
+        )
+
+    def rebuild_run(self, run: Run, trainer_config: TrainerConfig):
+        return run.rebuild(
+            data_dir=self.data_dir,
+            num_workers=self.num_workers,
+            trainer_config=trainer_config
+        )
+
     def del_run(self, run_id: int):
         self.runs[run_id] = None
 
@@ -124,7 +137,9 @@ class Runner:
                 logger=self.logger,
                 limit_train_batches=None,
                 limit_val_batches=None,
-                max_epochs=1
+                max_epochs=1,
+                devices=1,
+                log_every_n_steps=1
             )
 
         run = self._check_for_test_run(run, trainer_config)
@@ -132,7 +147,7 @@ class Runner:
         return run.trainer.test(
             model=run.model,
             datamodule=run.data_module,
-            ckpt_path="best"
+            ckpt_path=None,  # "best"
         )
 
     def predict(

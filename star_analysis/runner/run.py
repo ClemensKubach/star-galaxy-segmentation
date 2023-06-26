@@ -22,6 +22,8 @@ class TrainerConfig:
     limit_train_batches: float | int | None = None
     limit_val_batches: float | int | None = None
     max_epochs: int = 10
+    devices: int | str = "auto"
+    log_every_n_steps: int = 50
 
 
 @dataclass
@@ -58,6 +60,7 @@ class Run:
 
         self.__data_module: LightningDataModule | None = datamodule
         self.__trainer: Trainer | None = config.trainer
+        self.__tuner: Tuner | None = None
         self.__model: LightningModule | None = config.model_config.model_module
         self.__loss: Module | None = config.model_config.loss_module
 
@@ -98,6 +101,12 @@ class Run:
             data_dir=data_dir, num_workers=num_workers, trainer_config=trainer_config
         )
 
+    def prebuild(self, data_dir: str, num_workers: int):
+        self._build_pipeline(
+            prebuild=True,
+            data_dir=data_dir, num_workers=num_workers
+        )
+
     def fit(self):
         self.trainer.fit(
             model=self.model,
@@ -115,12 +124,18 @@ class Run:
     ):
         self.__built = False
         self._build_pipeline(
-            rebuild_data_module, rebuild_trainer, rebuild_model, rebuild_loss,
-            data_dir, num_workers, trainer_config
+            force_build_data_module=rebuild_data_module,
+            force_build_trainer=rebuild_trainer,
+            force_build_model=rebuild_model,
+            force_build_loss=rebuild_loss,
+            data_dir=data_dir,
+            num_workers=num_workers,
+            trainer_config=trainer_config
         )
 
     def _build_pipeline(
             self,
+            prebuild: bool = False,
             force_build_data_module: bool = False,
             force_build_trainer: bool = False,
             force_build_model: bool = False,
@@ -144,10 +159,16 @@ class Run:
         if self.data_module is None or force_build_data_module:
             self.__data_module = self._build_datamodule(data_dir, num_workers)
 
-        if self.trainer is None or force_build_trainer:
-            self.__trainer = self._build_trainer(trainer_config)
+        if not prebuild:
+            if self.trainer is None or force_build_trainer:
+                if trainer_config is None:
+                    raise ValueError("Trainer config is None")
+                self.__trainer = self._build_trainer(trainer_config)
 
-        self.__built = True
+            if self.__tuner is None:
+                self.__tuner = self._build_tuner(self.__trainer)
+
+            self.__built = True
 
     def _build_loss(self) -> Module:
         return self.config.model_config.get_loss()
@@ -181,6 +202,8 @@ class Run:
             save_top_k=3,
             auto_insert_metric_name=True
         )
+        if config.logger is None:
+            print("No logger provided!")
         trainer = Trainer(
             max_epochs=config.max_epochs,
             logger=config.logger,
@@ -193,18 +216,23 @@ class Run:
                 lr_monitor,
                 checkpointing_callback
             ],
-            default_root_dir=CHECKPOINT_DIR
+            default_root_dir=CHECKPOINT_DIR,
+            devices=config.devices,
+            log_every_n_steps=config.log_every_n_steps,
         )
+        return trainer
+
+    def _build_tuner(self, trainer: Trainer):
         tuner = Tuner(trainer)
         if self.config.model_config.batch_size is None:
             tuner.scale_batch_size(
-                self.config.model_config.model_module,
+                model=self.model,
                 mode="power",
                 datamodule=self.data_module
             )
         if self.config.model_config.learning_rate is None:
             tuner.lr_find(
-                self.config.model_config.model_module,
+                model=self.model,
                 datamodule=self.data_module
             )
-        return trainer
+        return tuner

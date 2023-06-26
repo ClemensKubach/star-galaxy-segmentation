@@ -21,6 +21,7 @@ class DADiceLoss(DiceLoss):
     ):
         super(DADiceLoss, self).__init__(
             mode=mode,
+            num_classes=num_classes,
             classes=classes,
             log_loss=log_loss,
             from_logits=from_logits,
@@ -28,7 +29,6 @@ class DADiceLoss(DiceLoss):
             ignore_index=ignore_index,
             eps=eps
         )
-        self.num_classes = num_classes
 
     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         d = vectorize_image(

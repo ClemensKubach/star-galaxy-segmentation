@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
+import torchvision.transforms
 from torchvision.transforms import transforms
 from enum import Enum
 
@@ -11,6 +12,7 @@ from star_analysis.utils.conversions import relocate_channels
 
 class Augmentations(Enum):
     NONE = None
+    NORMALIZE = "normalize"
     ROTATE = "rotate"
     FLIP = "flip"
     ZOOM = "zoom"
@@ -81,6 +83,13 @@ def get_transforms(augmentations: Augmentations) -> transforms.Compose | None:
     transf = None
     if augmentations == Augmentations.NONE:
         return None
+    elif augmentations == Augmentations.NORMALIZE:
+        transf = [
+            torchvision.transforms.Normalize(
+                mean=[0.01829018, 0.06763462, 0.03478437, 0.00994593, 0.09194765],
+                std=[0.6351227, 1.1362617, 0.8386613, 0.7339489, 3.5971174]
+            )
+        ]
     elif augmentations == Augmentations.ROTATE:
         transf = [
             PreparePatch(),

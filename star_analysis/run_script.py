@@ -12,7 +12,7 @@ def execute():
         SdssRunConfig(
             model_config=SdssModelConfig(
                 learning_rate=1e-3,
-                batch_size=80,
+                batch_size=32, # 80,
                 model_type=ModelTypes.UNET,
                 loss_type=LossType.DICE
             ),
@@ -26,18 +26,18 @@ def execute():
         run=run,
         trainer_config=TrainerConfig(
             logger=runner.logger,
-            max_epochs=1,
-            limit_train_batches=10,
-            limit_val_batches=10,
-            log_every_n_steps=1
+            max_epochs=10,
+            limit_train_batches=None,
+            limit_val_batches=None,
+            log_every_n_steps=50
         )
     )
-    runner.save_model(run)
+    # runner.save_model(run)
 
     result_dict = runner.test(
         run=run,
         trainer_config=None,
-    )
+    )[0]
     print(result_dict)
 
 

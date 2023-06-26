@@ -29,3 +29,5 @@ class SdssDataModuleConfig:
     shuffle_train: bool = True
     train_size: float = 0.8
     num_workers: int = 1
+    persistent_workers: bool = True
+    pin_memory: bool = True

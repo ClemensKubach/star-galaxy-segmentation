@@ -56,8 +56,8 @@ class SdssDataModule(LightningDataModule):
             batch_size=self.config.batch_size,
             num_workers=self.config.num_workers,
             shuffle=self.config.shuffle_train,
-            pin_memory=True,
-            persistent_workers=True
+            pin_memory=self.config.pin_memory,
+            persistent_workers=self.config.persistent_workers
         )
 
     def val_dataloader(self):
@@ -66,8 +66,8 @@ class SdssDataModule(LightningDataModule):
             batch_size=self.config.batch_size,
             num_workers=self.config.num_workers,
             shuffle=False,
-            pin_memory=True,
-            persistent_workers=True
+            pin_memory=self.config.pin_memory,
+            persistent_workers=self.config.persistent_workers
         )
 
     def test_dataloader(self):
@@ -76,6 +76,6 @@ class SdssDataModule(LightningDataModule):
             batch_size=1,  # self.config.batch_size,
             num_workers=self.config.num_workers,
             shuffle=False,
-            pin_memory=True,
-            persistent_workers=True
+            pin_memory=self.config.pin_memory,
+            persistent_workers=self.config.persistent_workers
         )

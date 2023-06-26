@@ -200,7 +200,11 @@ class Run:
     def _build_model(self) -> LightningModule:
         return self.config.model_config.get_model(self.loss)
 
-    def _build_datamodule(self, data_dir: str, num_workers: int):
+    def _build_datamodule(
+            self,
+            data_dir: str,
+            num_workers: int
+    ):
         transform = get_transforms(self.config.augmentation)
         dataset_config = SdssDatasetConfig(
             data_dir=data_dir,
@@ -210,12 +214,15 @@ class Run:
             transform=transform,
             use_mmap=self.config.use_mmap
         )
+        persistent_workers = num_workers > 0
         module_config = SdssDataModuleConfig(
             dataset_config=dataset_config,
             batch_size=self.config.model_config.batch_size,
             shuffle_train=self.config.shuffle_train,
             train_size=self.config.train_size,
-            num_workers=num_workers
+            num_workers=num_workers,
+            pin_memory=True,
+            persistent_workers=persistent_workers
         )
         return SdssDataModule(module_config)
 

@@ -252,7 +252,7 @@ class Run:
             limit_val_batches=config.limit_val_batches,
             enable_checkpointing=True,
             callbacks=[
-                PlottingCallback(),
+                PlottingCallback(self.id),
                 lr_monitor,
                 checkpointing_callback
             ],

@@ -16,4 +16,3 @@ tensorboard
 segmentation-models-pytorch
 distance-map
 seaborn
-fastai

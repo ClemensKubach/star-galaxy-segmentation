@@ -73,6 +73,18 @@ class PreparePatch:
         return relocate_channels(image)
 
 
+class NormalizeConcatChannels:
+
+    def __init__(self):
+        self.n = torchvision.transforms.Normalize(
+            mean=[0.01829018, 0.06763462, 0.03478437, 0.00994593, 0.09194765],
+            std=[0.6351227, 1.1362617, 0.8386613, 0.7339489, 3.5971174]
+        )
+
+    def __call__(self, image: torch.Tensor):
+        return self.n(image[:5])
+
+
 def get_transforms(augmentations: Augmentations) -> transforms.Compose | None:
     """
     Get the transforms for input and target images.
@@ -84,11 +96,11 @@ def get_transforms(augmentations: Augmentations) -> transforms.Compose | None:
     if augmentations == Augmentations.NONE:
         return None
     elif augmentations == Augmentations.NORMALIZE:
+        print("WARN: Not completely checked.")
         transf = [
-            torchvision.transforms.Normalize(
-                mean=[0.01829018, 0.06763462, 0.03478437, 0.00994593, 0.09194765],
-                std=[0.6351227, 1.1362617, 0.8386613, 0.7339489, 3.5971174]
-            )
+            PreparePatch(),
+            NormalizeConcatChannels(),
+            PreparePatch()
         ]
     elif augmentations == Augmentations.ROTATE:
         transf = [

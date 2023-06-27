@@ -285,7 +285,7 @@ class Runner:
         return metrics
 
     def _optuna_tune(self, objective: Callable, trainer_config: OptunaTuneTrainerConfig) -> Study:
-        study = optuna.create_study()
+        study = optuna.create_study(direction=trainer_config.direction)
         study.optimize(
             objective,
             n_trials=trainer_config.num_trials,

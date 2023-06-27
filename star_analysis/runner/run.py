@@ -33,6 +33,7 @@ class OptunaTuneTrainerConfig(TrainerConfig):
     num_jobs: int = -1
     show_progress_bar: bool = True
     gc_after_trial: bool = True
+    direction: str = "minimize"
 
 
 @dataclass

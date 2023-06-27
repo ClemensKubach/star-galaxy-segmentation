@@ -18,7 +18,7 @@ def _normalize(d: torch.Tensor, max_possible_distance: int, normed: bool = False
     return scaled
 
 
-def compute_distance_map(y_true: torch.Tensor, normed: bool = False) -> torch.Tensor:
+def compute_distance_map(y_true: torch.Tensor, normed: bool = True) -> torch.Tensor:
     """Takes a binary matrix and returns the distance map with values normalized to [0, 1].
 
     :param y_true as Tensor of shape (N, C, W, H), (C, W, H),  (W, H)

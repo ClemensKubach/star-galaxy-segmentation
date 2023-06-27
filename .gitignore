@@ -163,7 +163,7 @@ cython_debug/
 data/**/*
 .idea
 .vscode/
-star_analysis/data/*
+sdss_data
 
 ## Core latex/pdflatex auxiliary files:
 *.aux
@@ -467,3 +467,8 @@ TSWLatexianTemp*
 # Uncomment the next line to have this generated file ignored.
 #*Notes.bib
 *.pdf
+logs
+**.ckpt
+**.yaml
+**.pt
+checkpoints

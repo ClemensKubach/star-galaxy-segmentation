@@ -85,7 +85,7 @@ class AlignmentService:
         return cutout_1, cutout_2
 
     def __create_label_map(self, wcs: WCS, orig_image_frame_data: BinTableHDU, label_tables: list[BinTableHDU], base_size: tuple) -> np.ndarray:
-        label_base = np.zeros((*base_size, len(self.label_encoder)))
+        label_base = np.zeros((*base_size, len(self.label_encoder)), dtype=np.int8)
         for label_table in label_tables:
             for run, type_, field, camcol,  ra, dec in zip(label_table.data['RUN'], label_table.data['OBJC_TYPE'], label_table.data['FIELD'], label_table.data['CAMCOL'], label_table.data['RA'], label_table.data['DEC']):
                 if field != orig_image_frame_data.data['FIELD'] or camcol != orig_image_frame_data.data['CAMCOL'] or run != orig_image_frame_data.data['RUN']:

@@ -9,7 +9,13 @@ class DataSplitService():
     def __init__(self, deterministic: bool = True) -> None:
         self.__deterministic = deterministic
 
-    def split(self, image: np.ndarray, label_map: np.ndarray, chunk_shape: tuple[int, int], phase_distribution: dict[Phase, float]) -> dict[Phase, list[tuple[np.ndarray, np.ndarray]]]:
+    def split(
+            self,
+            image: np.ndarray,
+            label_map: np.ndarray,
+            chunk_shape: tuple[int, int],
+            phase_distribution: dict[Phase, float]
+    ) -> dict[Phase, list[tuple[np.ndarray, np.ndarray]]]:
         assert image.shape[:2] == label_map.shape[:2]
         assert sum(phase_distribution.values()) == 1
 

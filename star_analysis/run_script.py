@@ -12,7 +12,7 @@ def execute():
         SdssRunConfig(
             model_config=SdssModelConfig(
                 learning_rate=1e-3,
-                batch_size=32, # 80,
+                batch_size=80,
                 model_type=ModelTypes.UNET,
                 loss_type=LossType.DICE
             ),

@@ -139,7 +139,7 @@ class BaseLightningModule(LightningModule):
 
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        scheduler = ReduceLROnPlateau(self.optimizer, monitor='train_loss')
+        scheduler = ReduceLROnPlateau(self.optimizer, monitor=f'{self.run_id}/train_loss')
         return {'optimizer': self.optimizer,
                 'scheduler': scheduler,
                 'monitor': "train_loss"

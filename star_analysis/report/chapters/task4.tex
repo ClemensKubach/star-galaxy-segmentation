@@ -1,1 +1,11 @@
-Task4
+We tryied the following augmentation methods: random flip (horizontal, vertical and both), rotation up to 30 degrees, both combined and balancing the classes per slice by artificially sampling new stars or galaxies respectively.
+The implementation of the augmentations can be seen in \path{star_analysis/data/augmentations.py}.
+\begin{figure}
+    \begin{tabularx}{\linewidth}{mmmm}
+        \hline
+        Model & Augmentation & Loss & Accuracy \\
+        \hline
+    \end{tabularx}
+    \caption{Augmentations with performance per model}
+    \label{AugPerformance}
+\end{figure}

@@ -1,4 +1,4 @@
-We implemented two different selection procedures for data splitting.
+We implemented two different selection procedures for data splitting. They can be seen in \path{star_analysis/service/data_split.py}.
 
 First, we just randomly sample into the the different sets (train, test, validation). Random sampling should preserve all metrics and should avoid fitting to local correlations. The numpy random seed can be set to create a deterministic splitting procedure.
 

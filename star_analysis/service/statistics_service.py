@@ -9,12 +9,15 @@ import matplotlib.pyplot as plt
 
 
 class StatisticsService:
-    def __init__(self, run: str = SDSSDataProvider.FIXED_VALIDATION_RUN) -> None:
-        self.__data_provider = SDSSDataProvider()
-        self.__data_provider.prepare(run)
+    def __init__(self, run: str = SDSSDataProvider.FIXED_VALIDATION_RUN, calculate: bool = False) -> None:
+        if calculate:
+            self.__data_provider = SDSSDataProvider()
+            self.__data_provider.prepare(run)
 
-    def get_channel_mean_variance(self, calculate: bool = False) -> tuple[np.ndarray, np.ndarray]:
-        if not calculate:
+        self.__calculate = calculate
+
+    def get_channel_mean_variance(self) -> tuple[np.ndarray, np.ndarray]:
+        if not self.__calculate:
             return (np.array([0.01829018, 0.06763462, 0.03478437, 0.00994593, 0.09194765]),
                     np.array([0.6351227, 1.1362617, 0.8386613, 0.7339489, 3.5971174]))
 
@@ -31,8 +34,8 @@ class StatisticsService:
 
         return image.mean(axis=(0, 1)), image.std(axis=(0, 1))
 
-    def get_number_examples_per_class(self, calculate: bool = False) -> np.ndarray:
-        if not calculate:
+    def get_number_examples_per_class(self) -> np.ndarray:
+        if not self.__calculate:
             return np.array([287404, 538043])
 
         label_files = self.__data_provider.get_label_files()
@@ -55,8 +58,8 @@ class StatisticsService:
 
         return np.cov(image.reshape(image.shape[-1], -1))
 
-    def get_color_correlation(self, calculate: bool = False) -> np.ndarray:
-        if not calculate:
+    def get_color_correlation(self) -> np.ndarray:
+        if not self.__calculate:
             return np.array([[7.15842715e+00, -2.07836431e-04, -3.29048687e-02,
                               -1.76674393e-03, -1.06130019e-04],
                              [-2.07836431e-04,  2.10465748e+00, -2.87848587e-02,
@@ -120,8 +123,8 @@ class StatisticsService:
 
         return means, stds
 
-    def get_distribution_per_class(self, calculate: bool = False) -> tuple[np.ndarray, np.ndarray]:
-        if not calculate:
+    def get_distribution_per_class(self) -> tuple[np.ndarray, np.ndarray]:
+        if not self.__calculate:
             return (np.array([[0.3555972, 0.66457057, 0.41107112, 0.5257245, 1.7446687],
                               [1.7689778, 2.3413954, 1.8904239, 0.7942855, 4.4665427]]),
                     np.array([[1.9958429,  2.7264001,  1.9724108,  4.534722, 11.216864],

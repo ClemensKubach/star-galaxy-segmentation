@@ -238,8 +238,8 @@ class Run:
     def _build_trainer(self, config: TrainerConfig) -> Trainer:
         lr_monitor = LearningRateMonitor(logging_interval='step')
         checkpointing_callback = ModelCheckpoint(
-            monitor='val_loss',
-            save_top_k=3,
+            monitor=f'{self.id}/val_loss',
+            save_top_k=2,
             auto_insert_metric_name=True
         )
         if config.logger is None:

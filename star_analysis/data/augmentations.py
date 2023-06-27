@@ -23,8 +23,8 @@ class Augmentations(Enum):
 class BalanceClasses:
     def __init__(self, labels_start: int):
         self.__labels_start = labels_start
-        self.__cls_distribution = StatisticsService(
-        ).get_distribution_per_class(calculate=False)
+        self.__cls_distribution = StatisticsService(calculate=False
+                                                    ).get_distribution_per_class()
 
     def __call__(self, image: torch.Tensor) -> torch.Tensor:
         image = image.numpy()
@@ -54,10 +54,10 @@ class BalanceClasses:
         chosen_pixels = coords[chosen_ids]
 
         image[chosen_pixels[:, 0], chosen_pixels[:, 1],
-        :self.__labels_start] = random_cls_values
+              :self.__labels_start] = random_cls_values
 
         image[chosen_pixels[:, 0], chosen_pixels[:, 1],
-        self.__labels_start + needed_class] = 1
+              self.__labels_start + needed_class] = 1
 
         image = torch.from_numpy(image)
 
@@ -76,13 +76,15 @@ class PreparePatch:
 class NormalizeConcatChannels:
 
     def __init__(self):
+        self.__mean, self.__var = StatisticsService(
+            calculate=False).get_channel_mean_variance()
         self.n = torchvision.transforms.Normalize(
-            mean=[0.01829018, 0.06763462, 0.03478437, 0.00994593, 0.09194765],
-            std=[0.6351227, 1.1362617, 0.8386613, 0.7339489, 3.5971174]
+            mean=self.__mean,
+            std=self.__var
         )
 
     def __call__(self, image: torch.Tensor):
-        return self.n(image[:5])
+        return torch.concat((self.n(image[:5]), image[5:]))
 
 
 def get_transforms(augmentations: Augmentations) -> transforms.Compose | None:

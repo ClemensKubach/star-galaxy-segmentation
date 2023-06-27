@@ -19,7 +19,7 @@ class PlottingCallback(Callback):
         self._plotting('test', trainer, pl_module, outputs, batch, batch_idx, dataloader_idx, only_idx=-1)
 
     def _plotting(self, state: str, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0, only_idx: int = 0) -> None:
-        def plot_obj(image, labels, predictions, obj: Literal["Galaxies", "Stars"]):
+        def plot_obj(image, labels, predictions, obj: Literal["Galaxies", "Stars"], cidx: int | None):
             image = torch.clamp(image, min=0, max=1)
 
             if obj == "Galaxies":
@@ -35,12 +35,14 @@ class PlottingCallback(Callback):
             new_image[predictions[:, :, obj_idx] > 0.5] = torch.tensor([1, 0, 0], dtype=torch.float32, device=labels.device)
             new_image[(predictions[:, :, obj_idx] > 0.5) & (labels[:, :, obj_idx] == 1)] = torch.tensor([0, 1, 0], dtype=torch.float32, device=labels.device)
 
-            tb_logger.add_image(f'{self.run_id}/{obj}-{state}', new_image, global_step=trainer.global_step, dataformats='WHC')
+            if cidx is None:
+                tb_logger.add_image(f'{self.run_id}/{obj}-{state}', new_image, global_step=trainer.global_step, dataformats='WHC')
+            tb_logger.add_image(f'{self.run_id}/{obj}-{state}/{cidx}', new_image, global_step=trainer.global_step, dataformats='WHC')
 
-        def plot_objects(inputs, labels, predictions):
+        def plot_objects(inputs, labels, predictions, cidx: int | None = None):
             image = inputs[:, :, [1, 2, 0]]
-            plot_obj(image, labels, predictions, "Galaxies")
-            plot_obj(image, labels, predictions, "Stars")
+            plot_obj(image, labels, predictions, "Galaxies", cidx)
+            plot_obj(image, labels, predictions, "Stars", cidx)
 
         inputs_batch, labels_batch = batch
         logits_mask = relocate_channels(pl_module(relocate_channels(inputs_batch)))
@@ -59,8 +61,8 @@ class PlottingCallback(Callback):
         if only_idx < 0:
             #for inputs, labels, predictions in zip(inputs_batch, labels_batch, predictions_batch):
             for idx in range(inputs_batch.shape[0]):
-                plot_objects(inputs_batch[idx].cpu(), labels_batch[idx].cpu(), predictions_batch[idx].cpu())
+                plot_objects(inputs_batch[idx].cpu(), labels_batch[idx].cpu(), predictions_batch[idx].cpu(), idx)
         else:
-            plot_objects(inputs_batch[only_idx].cpu(), labels_batch[only_idx].cpu(), predictions_batch[only_idx].cpu())
+            plot_objects(inputs_batch[only_idx].cpu(), labels_batch[only_idx].cpu(), predictions_batch[only_idx].cpu(), only_idx)
 
 

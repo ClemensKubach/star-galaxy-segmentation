@@ -142,5 +142,5 @@ class BaseLightningModule(LightningModule):
         scheduler = ReduceLROnPlateau(self.optimizer, monitor=f'{self.run_id}/train_loss')
         return {'optimizer': self.optimizer,
                 'scheduler': scheduler,
-                'monitor': "train_loss"
+                'monitor': f"{self.run_id}/train_loss"
                 }

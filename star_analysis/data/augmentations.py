@@ -84,7 +84,7 @@ class NormalizeConcatChannels:
         )
 
     def __call__(self, image: torch.Tensor):
-        return torch.concat((self.n(image[:5]), image[5:]))
+        return torch.concat((self.n(image[:5]), image[5:]), dim=-1)
 
 
 def get_transforms(augmentations: Augmentations) -> transforms.Compose | None:

@@ -9,7 +9,8 @@ class DeepLabV3Model(BaseLightningModule):
     def __init__(
             self,
             loss: Module,
-            config: ModelConfig
+            config: ModelConfig,
+            run_id: int | None = None
     ):
         deeplab_v3 = smp.DeepLabV3(
             encoder_name="resnet18",
@@ -20,5 +21,6 @@ class DeepLabV3Model(BaseLightningModule):
         super().__init__(
             architecture=deeplab_v3,
             loss=loss,
-            config=config
+            config=config,
+            run_id=run_id
         )

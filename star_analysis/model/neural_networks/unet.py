@@ -10,7 +10,8 @@ class UNetModel(BaseLightningModule):
     def __init__(
             self,
             loss: Module,
-            config: ModelConfig
+            config: ModelConfig,
+            run_id: int | None = None
     ):
         unet = smp.Unet(
             encoder_name="resnet18",
@@ -21,6 +22,7 @@ class UNetModel(BaseLightningModule):
         super().__init__(
             architecture=unet,
             loss=loss,
-            config=config
+            config=config,
+            run_id=run_id
         )
 

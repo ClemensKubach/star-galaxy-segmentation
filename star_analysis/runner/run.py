@@ -54,6 +54,7 @@ class Run:
             name: str | None = None,
             datamodule: LightningDataModule | None = None,
     ):
+        self.__id = None
         self.__name = name
         self.__config = config
         self.__built = False
@@ -67,6 +68,13 @@ class Run:
         self.__loss: Module | None = config.model_config.loss_module
 
         self.__evaluation: list[dict[str, Any]] = []
+
+    @property
+    def id(self) -> int:
+        return self.__id
+
+    def set_id(self, id: int):
+        self.__id = id
 
     @property
     def name(self) -> str:
@@ -199,7 +207,7 @@ class Run:
         return self.config.model_config.get_loss()
 
     def _build_model(self) -> LightningModule:
-        return self.config.model_config.get_model(self.loss)
+        return self.config.model_config.get_model(self.loss, run_id=self.id)
 
     def _build_datamodule(
             self,

@@ -56,6 +56,7 @@ class Runner:
 
     def add_run(self, run: Run) -> int:
         run_id = len(self.runs)
+        run.set_id(run_id)
         self.runs[run_id] = run
         return run_id
 
@@ -208,7 +209,7 @@ class Runner:
         raise NotImplementedError(f"Close not implemented yet")
 
     def _setup_logger(self):
-        return TensorBoardLogger(name=self.project_name, save_dir=LOGGING_DIR)
+        return TensorBoardLogger(name=self.project_name, save_dir=LOGGING_DIR, )
 
     def _check_for_simple_run(
             self,

@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 import segmentation_models_pytorch as smp
 import torch
 import torchmetrics
@@ -15,6 +17,7 @@ class BaseLightningModule(LightningModule):
             architecture: torch.nn.Module,
             loss: torch.nn.Module,
             config: ModelConfig,
+            run_id: int | None
     ):
         super().__init__()
 
@@ -28,11 +31,14 @@ class BaseLightningModule(LightningModule):
         self.loss_fn = loss
         self.architecture = architecture
         self.__config = config
+        self.run_id = run_id
 
         # for later use
         self._outputs_train = []
         self._outputs_val = []
         self._outputs_test = []
+
+        self.save_hyperparameters(asdict(config))
 
     @property
     def config(self) -> ModelConfig:
@@ -86,27 +92,38 @@ class BaseLightningModule(LightningModule):
         f1_class0 = smp.metrics.f1_score(tp_class0, fp_class0, fn_class0, tn_class0, reduction="micro")
         f1_class1 = smp.metrics.f1_score(tp_class1, fp_class1, fn_class1, tn_class1, reduction="micro")
 
+        if self.run_id:
+            prefix = f"{self.run_id}/{stage}_"
+        else:
+            prefix = f"{stage}_"
+
         console_metrics = {
-            f"{stage}_loss": loss.mean(),
-            f"{stage}_f1": f1.mean(),
-            f"{stage}_f1_galaxies": f1_class0.mean(),
-            f"{stage}_f1_stars": f1_class1.mean(),
+            f"{prefix}loss": loss.mean(),
+            f"{prefix}f1": f1.mean(),
+            f"{prefix}f1_galaxies": f1_class0.mean(),
+            f"{prefix}f1_stars": f1_class1.mean(),
         }
         additional_metrics = {
-            f"{stage}_tp": torch.sum(tp),
-            f"{stage}_fp": torch.sum(fp),
-            f"{stage}_fn": torch.sum(fn),
-            f"{stage}_tn": torch.sum(tn),
+            f"{prefix}tp": torch.sum(tp),
+            f"{prefix}fp": torch.sum(fp),
+            f"{prefix}fn": torch.sum(fn),
+            f"{prefix}tn": torch.sum(tn),
         }
         for k, v in console_metrics.items():
             self.log(k, v, prog_bar=True, logger=True)
         for k, v in additional_metrics.items():
             self.log(k, v, prog_bar=False, logger=True)
 
+        if stage == "val":
+            self.log("hp_metric", f1.mean())
+
         if stage == "train":
             return loss
         else:
             return pred_mask
+
+    # def on_train_start(self):
+    #     self.logger.log_hyperparams(self.hparams, {"hp/train_f1": 0, "hp/val_f1": 0, "hp/test_f1": 0})
 
     def training_step(self, batch, batch_idx):
         out = self.shared_step(batch, stage="train")

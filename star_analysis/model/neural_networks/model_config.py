@@ -28,16 +28,16 @@ class ModelConfig:
     loss_mode: str | None = None
     loss_module: Module | None = None
 
-    def get_model(self, loss: Module):
+    def get_model(self, loss: Module, run_id: int | None = None):
         match self.model_type:
             case ModelTypes.FCN:
                 raise NotImplementedError("FCN is not implemented yet.")
             case ModelTypes.DLV3:
                 from star_analysis.model.neural_networks.deep_lab_v3 import DeepLabV3Model
-                return DeepLabV3Model(loss=loss, config=self)
+                return DeepLabV3Model(loss=loss, config=self, run_id=run_id)
             case ModelTypes.UNET:
                 from star_analysis.model.neural_networks.unet import UNetModel
-                return UNetModel(loss=loss, config=self)
+                return UNetModel(loss=loss, config=self, run_id=run_id)
             case ModelTypes.CUSTOM:
                 raise NotImplementedError("Custom model is not implemented yet.")
             case _:

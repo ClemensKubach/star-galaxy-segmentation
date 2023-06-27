@@ -1,13 +1,8 @@
 from typing import Literal
 
-import numpy as np
 import torch
-import torchvision
-from PIL import Image
 from lightning import Callback
 from lightning.pytorch.loggers import TensorBoardLogger
-import io
-import matplotlib.pyplot as plt
 from star_analysis.utils.conversions import relocate_channels
 
 
@@ -22,11 +17,8 @@ def _plotting(state: str, trainer, pl_module, outputs, batch, batch_idx, dataloa
         else:
             raise ValueError("Not supported object type")
 
-        # coords_obj_pred = torch.nonzero(predictions[:, :, obj_idx])
-        # coords_obj_true = torch.nonzero(labels[:, :, obj_idx])
-
-        #shape = list(labels.shape[:2]) + [3]
-        new_image = torch.clone(image) #torch.full(shape, 255, dtype=torch.uint8, device=labels.device)
+        # new_image = torch.clone(image)
+        new_image = torch.full_like(image, 1, dtype=torch.float32, device=labels.device)
         new_image[labels[:, :, obj_idx] == 1] = torch.tensor([0, 0, 1], dtype=torch.float32, device=labels.device)
         new_image[predictions[:, :, obj_idx] > 0.5] = torch.tensor([1, 0, 0], dtype=torch.float32, device=labels.device)
         new_image[(predictions[:, :, obj_idx] > 0.5) & (labels[:, :, obj_idx] == 1)] = torch.tensor([0, 1, 0], dtype=torch.float32, device=labels.device)
@@ -53,8 +45,9 @@ def _plotting(state: str, trainer, pl_module, outputs, batch, batch_idx, dataloa
         raise ValueError('TensorBoard Logger not found')
 
     if only_idx < 0:
-        for inputs, labels, predictions in zip(inputs_batch, labels_batch, predictions_batch):
-            plot_objects(inputs.cpu(), labels.cpu(), predictions.cpu())
+        #for inputs, labels, predictions in zip(inputs_batch, labels_batch, predictions_batch):
+        for idx in range(inputs_batch.shape[0]):
+            plot_objects(inputs_batch[idx].cpu(), labels_batch[idx].cpu(), predictions_batch[idx].cpu())
     else:
         plot_objects(inputs_batch[only_idx].cpu(), labels_batch[only_idx].cpu(), predictions_batch[only_idx].cpu())
 

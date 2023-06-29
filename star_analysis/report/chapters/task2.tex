@@ -1,5 +1,3 @@
-We implemented two different selection procedures for data splitting. They can be seen in \path{star_analysis/service/data_split.py}.
+For our deep learning experiments we decided on randomly sampling the slices in train, test and validation set. This should preserve the class distribution and prevent the model from fitting to local correlations.
 
-First, we just randomly sample into the the different sets (train, test, validation). Random sampling should preserve all metrics and should avoid fitting to local correlations. The numpy random seed can be set to create a deterministic splitting procedure.
-
-In the second procedure, we assign consecutive slices always a different set. At least as long as the desired train, val, test distribution is not met. If one set is filled, it will no longer receive further slices. This results in the last slices always belonging to the train set. Just as random sampling, splitting the data in a round-robin manner should yield strong sets.
+For the classical AI we used the first $N$ images for training and then $M$ images for testing. Here the model could easily fit to local correlations. Since the models were not able to differentiate between stars, galaxies and background at all, we decided on not further improving these approaches.

@@ -1,7 +1,5 @@
 from dataclasses import dataclass
 
-import torch
-
 from lightning import LightningModule
 from torch.nn import Module
 
@@ -67,8 +65,7 @@ class ModelConfig:
                 return DAFocalLoss(
                     mode=self.loss_mode,
                     num_classes=self.num_classes,
-                    image_shape=self.image_shape,
-                    batch_size=self.batch_size
+                    image_shape=self.image_shape
                 )
             case LossType.DA_DICE:
                 return DADiceLoss(

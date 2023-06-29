@@ -92,7 +92,7 @@ class BaseLightningModule(LightningModule):
         f1_class0 = smp.metrics.f1_score(tp_class0, fp_class0, fn_class0, tn_class0, reduction="micro")
         f1_class1 = smp.metrics.f1_score(tp_class1, fp_class1, fn_class1, tn_class1, reduction="micro")
 
-        if self.run_id:
+        if self.run_id is not None:
             prefix = f"{self.run_id}/{stage}_"
         else:
             prefix = f"{stage}_"
@@ -142,5 +142,5 @@ class BaseLightningModule(LightningModule):
         scheduler = ReduceLROnPlateau(self.optimizer, monitor=f'{self.run_id}/train_loss')
         return {'optimizer': self.optimizer,
                 'scheduler': scheduler,
-                'monitor': "train_loss"
+                'monitor': f"{self.run_id}/train_loss"
                 }

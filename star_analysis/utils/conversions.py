@@ -2,10 +2,12 @@ import torch
 
 
 def vectorize_image(image: torch.Tensor, num_classes) -> torch.Tensor:
+    """Converts an image of shape (N, C, H|W, H|W) to (bs, num_classes, W*H)"""
     return image.contiguous().view(image.size(0), num_classes, -1)
 
 
 def restore_image(vec_img: torch.Tensor, bs: int, channels: int, w: int, h: int):
+    """Converts an image of shape (N, C, W*H) to (bs, C, H, W)"""
     return vec_img.contiguous().view(bs, channels, h, w)
 
 

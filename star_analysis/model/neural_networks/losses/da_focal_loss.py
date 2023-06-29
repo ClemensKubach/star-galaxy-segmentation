@@ -23,33 +23,9 @@ def da_focal_loss_with_logits(
         reduced_threshold: Optional[float] = None,
         eps: float = 1e-6,
 ) -> torch.Tensor:
-    """Compute binary focal loss between target and output logits.
-    See :class:`~pytorch_toolbelt.losses.FocalLoss` for details.
-
-    Args:
-        output: Tensor of arbitrary shape (predictions of the model)
-        target: Tensor of the same shape as input
-        gamma: Focal loss power factor
-        alpha: Weight factor to balance positive and negative samples. Alpha must be in [0...1] range,
-            high values will give more weight to positive class.
-        reduction (string, optional): Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum' | 'batchwise_mean'. 'none': no reduction will be applied,
-            'mean': the sum of the output will be divided by the number of
-            elements in the output, 'sum': the output will be summed. Note: :attr:`size_average`
-            and :attr:`reduce` are in the process of being deprecated, and in the meantime,
-            specifying either of those two args will override :attr:`reduction`.
-            'batchwise_mean' computes mean loss per sample in batch. Default: 'mean'
-        normalized (bool): Compute normalized focal loss (https://arxiv.org/pdf/1909.07829.pdf).
-        reduced_threshold (float, optional): Compute reduced focal loss (https://arxiv.org/abs/1903.01347).
-
-    References:
-        https://github.com/open-mmlab/mmdetection/blob/master/mmdet/core/loss/losses.py
-    """
-    # target = target.type(output.type())
     target = target.to(dtype=output.dtype, device=output.device)
 
     logpt = F.binary_cross_entropy_with_logits(output, target, reduction="none")
-    # logpt2 = F.binary_cross_entropy_with_logits(1-output, target, reduction="none")
     pt = torch.exp(-logpt)
 
     d = vectorize_image(
@@ -58,23 +34,16 @@ def da_focal_loss_with_logits(
         ),
         num_classes
     )
-    #y = 1 - d
-    #y = y.view(-1)
     d = d.view(-1)
 
     # compute the loss
     if reduced_threshold is None:
         focal_term = (1 + d) * (1.0 - pt).pow(gamma)
-        # focal_term2 = (1.0 - y) * y.pow(gamma)
     else:
         focal_term = ((1.0 - pt) / reduced_threshold).pow(gamma)
         focal_term[pt < reduced_threshold] = 1
 
     loss = focal_term * logpt
-    # loss1 = focal_term * logpt
-    # loss2 = focal_term2 * logpt2
-    # loss = loss2
-    # loss[y == 1] = loss1[y == 1]
 
     if alpha is not None:
         loss *= alpha * target + (1 - alpha) * (1 - target)
@@ -97,7 +66,6 @@ class DAFocalLoss(_Loss):
     def __init__(
             self,
             mode: str,
-            batch_size: int,
             num_classes: int,
             image_shape: tuple[int, int],
             alpha: Optional[float] = None,
@@ -107,21 +75,12 @@ class DAFocalLoss(_Loss):
             normalized: bool = False,
             reduced_threshold: Optional[float] = None,
     ):
-        """Compute Focal loss
-
-        Args:
-            mode: Loss mode 'binary', 'multiclass' or 'multilabel'
-            alpha: Prior probability of having positive value in target.
-            gamma: Power factor for dampening weight (focal strength).
-            ignore_index: If not None, targets may contain values to be ignored.
-                Target values equal to ignore_index will be ignored from loss computation.
-            normalized: Compute normalized focal loss (https://arxiv.org/pdf/1909.07829.pdf).
-            reduced_threshold: Switch to reduced focal loss. Note, when using this mode you
-                should use `reduction="sum"`.
+        """
+        Default Focal loss for segmentation task with additional distance penalty.
 
         Shape
              - **y_pred** - torch.Tensor of shape (N, C, H, W)
-             - **y_true** - torch.Tensor of shape (N, H, W) or (N, C, H, W)
+             - **y_true** - torch.Tensor of shape (N, C, H, W)
 
         Reference
             https://github.com/BloodAxe/pytorch-toolbelt
@@ -133,12 +92,10 @@ class DAFocalLoss(_Loss):
         self.mode = mode
         self.ignore_index = ignore_index
         self.num_classes = num_classes
-        self.batch_size = batch_size
         self.image_shape = image_shape
 
-        self.focal_loss_fn = partial(
+        self.da_focal_loss_fn = partial(
             da_focal_loss_with_logits,
-            batch_size=batch_size,
             num_classes=num_classes,
             image_shape=image_shape,
             alpha=alpha,
@@ -149,8 +106,17 @@ class DAFocalLoss(_Loss):
         )
 
     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-        y_pred = vectorize_image(y_pred, self.num_classes)
+        assert y_pred.dim() == 4
+        assert y_true.dim() == 4
+        assert y_pred.shape[0] == y_true.shape[0]
+        assert y_pred.shape[1] == self.num_classes
+        assert y_pred.shape[2] == y_true.shape[2]
+        assert y_pred.shape[3] == y_true.shape[3]
+
+        batch_size = y_true.shape[0]
+
         y_true = vectorize_image(y_true, self.num_classes)
+        y_pred = vectorize_image(y_pred, self.num_classes)
 
         if self.mode in {BINARY_MODE, MULTILABEL_MODE}:
             y_true = y_true.view(-1)
@@ -162,10 +128,9 @@ class DAFocalLoss(_Loss):
                 y_pred = y_pred[not_ignored]
                 y_true = y_true[not_ignored]
 
-            loss = self.focal_loss_fn(y_pred, y_true)
+            loss = self.da_focal_loss_fn(y_pred, y_true, batch_size=batch_size)
 
         elif self.mode == MULTICLASS_MODE:
-
             num_classes = y_pred.size(1)
             loss = 0
 
@@ -181,5 +146,5 @@ class DAFocalLoss(_Loss):
                     cls_y_true = cls_y_true[not_ignored]
                     cls_y_pred = cls_y_pred[not_ignored]
 
-                loss += self.focal_loss_fn(cls_y_pred, cls_y_true)
+                loss += self.da_focal_loss_fn(cls_y_pred, cls_y_true)
         return loss

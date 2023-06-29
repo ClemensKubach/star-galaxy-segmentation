@@ -345,4 +345,4 @@ class SDSSDataProvider:
         return tuple(data)
 
     def __len__(self) -> int:
-        return len(self.__data_as_list)
+        return len(self.__indexed_data)

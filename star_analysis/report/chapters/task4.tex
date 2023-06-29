@@ -1,5 +1,10 @@
 We tried the following augmentation methods: random flip (horizontal, vertical and both), rotation up to 30 degrees, both combined and balancing the classes per slice by artificially sampling new stars or galaxies respectively. Furthermore, we also consider normalizing an augmentation.
 The implementation of the augmentations can be seen in \path{star_analysis/data/augmentations.py}.
+
+\subsection{Star/Galaxy Sampling}
+The spectrum of a stars depends on its age and its size. Therefore, the spectrum of a star slowly changes over time. Depending of the size, the fate of the star changes drastically resulting in either a massive spectrum shift or no spectrum at all (black hole).
+Hence, we assume the true distribution to be a gaussian mixture model. Since we do not know the means of all the peaks, we approximated the distribution with a single gaussian per class with the mean and variance found in \Cref{moments}.
+
 \begin{figure}
     \begin{tabularx}{\linewidth}{mmmm}
         \hline

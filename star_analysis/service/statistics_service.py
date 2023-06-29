@@ -1,3 +1,5 @@
+import torch
+from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from star_analysis.dataprovider.image_downloader import ImageDownloader
 from star_analysis.dataprovider.sdss_dataprovider import SDSSDataProvider
@@ -16,7 +18,7 @@ class StatisticsService:
 
         self.__calculate = calculate
 
-    def get_channel_mean_variance(self) -> tuple[np.ndarray, np.ndarray]:
+    def get_channel_mean_std(self) -> tuple[np.ndarray, np.ndarray]:
         if not self.__calculate:
             return (np.array([0.01829018, 0.06763462, 0.03478437, 0.00994593, 0.09194765]),
                     np.array([0.6351227, 1.1362617, 0.8386613, 0.7339489, 3.5971174]))
@@ -52,33 +54,88 @@ class StatisticsService:
 
         return len(data.data)
 
-    def _get_covariance(self, id: int) -> np.ndarray:
-        image, _ = self.__data_provider[id]
-        image = image - self.get_channel_mean_variance()[0][None, None, :]
+    def get_color_covariance(self) -> np.ndarray:
+        if not self.__calculate:
+            return np.array([[2.89121563e+00, -1.05176982e-04, -1.89354782e-02,
+                              -1.03383729e-03, -2.07394063e-04],
+                             [-1.05176982e-04,  2.73075300e+00, -2.68645749e-02,
+                              -2.14423000e-03, -1.08504346e-03],
+                             [-1.89354782e-02, -2.68645749e-02,  3.40216588e+01,
+                              -1.06141428e-02, -8.34362314e-03],
+                             [-1.03383729e-03, -2.14423000e-03, -1.06141428e-02,
+                              3.26035539e+00, -2.64182748e-04],
+                             [-2.07394063e-04, -1.08504346e-03, -8.34362314e-03,
+                              -2.64182748e-04,  3.30714957e+00]])
 
-        return np.cov(image.reshape(image.shape[-1], -1))
+        results = []
+        try:
+            for image, _ in tqdm(self.__data_provider):
+                results.append(np.cov(image.reshape(image.shape[-1], -1)))
+        except KeyError:
+            pass
+
+        return np.mean(results, axis=0)
+
+    def get_color_covariance_per_class(self) -> np.ndarray:
+        if not self.__calculate:
+            return (np.array([[6.80124327e-01,  5.63158108e-04, -1.15268030e-05,
+                               -3.30873009e-04, -2.82045660e-04],
+                              [5.63158108e-04,  5.23857142e+00, -1.34290099e-03,
+                               -4.58022780e-04, -7.29065036e-04],
+                              [-1.15268030e-05, -1.34290099e-03,  2.12589264e+00,
+                               -1.12678654e-03, -3.15711925e-04],
+                              [-3.30873009e-04, -4.58022780e-04, -1.12678654e-03,
+                               1.90096378e+00, -1.75878757e-04],
+                              [-2.82045660e-04, -7.29065036e-04, -3.15711925e-04,
+                               -1.75878757e-04,  2.55962936e+00]]),
+                    np.array([[2.17620018e+00, -7.38086617e-04,  1.11209774e-03,
+                               -1.09927403e-03, -7.78044286e-04],
+                              [-7.38086617e-04,  2.18214456e+00, -2.71485652e-04,
+                               -4.53496217e-04, -3.57630746e-04],
+                              [1.11209774e-03, -2.71485652e-04,  3.19908481e+00,
+                               -3.91866787e-04, -6.89360352e-04],
+                              [-1.09927403e-03, -4.53496217e-04, -3.91866787e-04,
+                               4.53817152e+00, -7.37141842e-04],
+                              [-7.78044286e-04, -3.57630746e-04, -6.89360352e-04,
+                               -7.37141842e-04,  6.15172588e+00]]))
+
+        cov1_ = []
+        cov2_ = []
+        try:
+            for image, label in tqdm(self.__data_provider):
+                reshaped = image.reshape(
+                    image.shape[-1], -1)
+                label_reshaped = label.reshape(
+                    label.shape[-1], -1).astype(bool)
+                cov1 = np.cov(reshaped[:, label_reshaped[0]])
+                cov2 = np.cov(reshaped[:, label_reshaped[1]])
+                if label_reshaped[0].any():
+                    cov1_.append(cov1)
+                if label_reshaped[1].any():
+                    cov2_.append(cov2)
+        except KeyError:
+            pass
+
+        return np.mean(cov1_, axis=0), np.mean(cov2_, axis=0)
 
     def get_color_correlation(self) -> np.ndarray:
         if not self.__calculate:
-            return np.array([[7.15842715e+00, -2.07836431e-04, -3.29048687e-02,
-                              -1.76674393e-03, -1.06130019e-04],
-                             [-2.07836431e-04,  2.10465748e+00, -2.87848587e-02,
-                              -2.29227106e-03, -2.14289441e-04],
-                             [-3.29048687e-02, -2.87848587e-02,  4.79155673e+01,
-                              -1.72814254e-02, -2.27799290e-03],
-                             [-1.76674393e-03, -2.29227106e-03, -1.72814254e-02,
-                              6.05526334e+00, -1.17788174e-04],
-                             [-1.06130019e-04, -2.14289441e-04, -2.27799290e-03,
-                              -1.17788174e-04,  2.55142858e-01]])
+            return np.array([[1.00000000e+00, -4.17509405e-05, -2.05024948e-04,
+                              -2.41507421e-04, -4.93587182e-05],
+                             [-4.17509405e-05,  1.00000000e+00, -9.25423299e-05,
+                              -2.02164901e-04, -2.39734696e-04],
+                             [-2.05024948e-04, -9.25423299e-05,  1.00000000e+00,
+                              -9.81700911e-05, -1.52132613e-04],
+                             [-2.41507421e-04, -2.02164901e-04, -9.81700911e-05,
+                              1.00000000e+00, -2.36536908e-05],
+                             [-4.93587182e-05, -2.39734696e-04, -1.52132613e-04,
+                              -2.36536908e-05,  1.00000000e+00]])
 
-        results = process_map(self._get_covariance,
-                              range(len(self.__data_provider)))
+        results = []
+        for image, _ in tqdm(self.__data_provider):
+            results.append(np.corrcoef(image.reshape(image.shape[-1], -1)))
 
-        stds = self.get_channel_mean_variance()[1]
-        stds0 = np.repeat(stds[:, None], stds.shape[0], axis=-1)
-        stds1 = np.repeat(stds[None, :], stds.shape[0], axis=0)
-
-        return np.mean(results, axis=0) / (stds0 * stds1)
+        return np.mean(results, axis=0)
 
     def __plot_class(self, data: np.ndarray, color: str, title: str):
         sns.lmplot(x='ra', y='dec', data=data, palette=[color],

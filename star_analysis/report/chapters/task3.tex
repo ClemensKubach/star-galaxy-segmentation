@@ -1,1 +1,27 @@
-Task 3
+We decided to try classical AI and deep learning for our models.
+
+\section{Classical AI}
+For classical AI, we used an SVM-Classifier and a Logistic-Regression. As input we used individual pixels. Both approaches were evaluated on the same data.
+
+\subsection{SVM-Classifier}
+Due to computational limits on our side, we just used 10 images to train on. To further reduce the amount of data, we only considered pixels where one channel $>127$. This threshold is a hyperparameter, which we did not tune further because of bad initial performance.
+
+The code can be found in \path{star_analysis/model/svm.py}
+
+\subsection{Logistic Regression}
+This approach is fast enough to learn in batches of 20 images. Also, we do not need to down-sample the data to make it feasible to train. Therefore, this approach learns from much more data. We used 100 images in total for training.
+
+For code, see \path{star_analysis/model/logistic_regression.py}
+
+\subsection{Performance}
+\begin{tabularx}{\linewidth}{mmmm}
+    \hline
+    Model               & Accuracy & Macro-Precision & Macro-Recall \\
+    \hline
+    SVM-Classifier      & $0.99$   & $0.33$          & $0.33$       \\
+    \hline
+    Logistic Regression & $0.99$   & $0.33$          & $0.33$       \\
+\end{tabularx}
+
+\subsection{Conclusion}
+The way we applied the classical methods did not result in a classifier which predicts the classes properly. The models mostly predict everything to be sky or background.

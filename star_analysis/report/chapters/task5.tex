@@ -1,7 +1,10 @@
 \section{1}
 For easy installation we provide a requirements file for conda. It can be installed by calling
 \begin{lstlisting}[language=bash]
-    $ conda install --file requirements.txt 
+conda install --file requirements.txt 
 \end{lstlisting}
-Then one needs to add the root of our repository to the $PYTHONPATH$. This can be eather done by navigating into the root prior to calling python or by $export PYTHONPATH=\$PYTHONPATH:<path>$
-The entrypoint to our system is \path{run_script.py}. Just calling it will reproduce our deep neural network experiments.
+Then one needs to add the root of our repository to the $PYTHONPATH$. This can be eather done by navigating into the root prior to calling python or by
+\begin{lstlisting}
+export PYTHONPATH=\$PYTHONPATH:<path>
+\end{lstlisting}
+The entrypoint to our system is \path{run_script.py} for the deep learning models and \path{run_classical_ai.py} for the classical ones.

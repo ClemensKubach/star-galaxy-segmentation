@@ -6,6 +6,7 @@ import torchmetrics
 from lightning import LightningModule
 from lightning.pytorch.cli import ReduceLROnPlateau
 from segmentation_models_pytorch.utils.metrics import Accuracy
+from torch.optim.lr_scheduler import OneCycleLR
 
 from star_analysis.model.neural_networks.model_config import ModelConfig
 from star_analysis.utils.conversions import vectorize_image, relocate_channels
@@ -139,8 +140,10 @@ class BaseLightningModule(LightningModule):
 
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        scheduler = ReduceLROnPlateau(self.optimizer, monitor=f'{self.run_id}/train_loss')
+        # self.optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
+        scheduler = ReduceLROnPlateau(self.optimizer, monitor=f'{self.run_id}/val_loss')
+        # scheduler = OneCycleLR(self.optimizer, max_lr=self.learning_rate, steps_per_epoch=379, epochs=300)
         return {'optimizer': self.optimizer,
                 'scheduler': scheduler,
-                'monitor': f"{self.run_id}/train_loss"
+                'monitor': f"{self.run_id}/val_loss"
                 }

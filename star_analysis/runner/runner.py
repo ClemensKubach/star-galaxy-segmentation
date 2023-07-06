@@ -1,6 +1,4 @@
-import copy
 import os
-from dataclasses import replace
 from enum import auto
 from typing import Iterable, Callable
 
@@ -8,11 +6,10 @@ import optuna
 import torch
 from lightning import LightningModule
 from lightning.pytorch.loggers import TensorBoardLogger
-from optuna import Trial, Study
+from optuna import Study
 from strenum import StrEnum
 from torch.utils.data import DataLoader
 
-from star_analysis.model.types import ModelTypes
 from star_analysis.runner.run import Run, TrainerConfig, OptunaTuneTrainerConfig, RunConfig
 from star_analysis.utils.constants import DATAFILES_ROOT, LOGGING_DIR, MODEL_DIR
 
@@ -187,7 +184,6 @@ class Runner:
             filename: str = None,
             path: str = None
     ) -> LightningModule:
-        print("Loading is not yet integrated.")
         if filename:
             checkpoint = torch.load(os.path.join(MODEL_DIR, filename))
         elif path:
@@ -197,10 +193,7 @@ class Runner:
 
         # TODO create run for loaded model
         model = None
-        if mode == 'ckpt':
-            model.load_state_dict(checkpoint['model'])
-            model.optimizer.load_state_dict(checkpoint['optimizer'])
-        elif mode == 'model':
+        if mode == LoadingModes.PT_MODEL:
             model = checkpoint
 
         return model

@@ -1,5 +1,3 @@
-from typing import Any
-
 import torch
 from lightning import LightningModule
 from segmentation_models_pytorch.losses import FocalLoss, MULTILABEL_MODE

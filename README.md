@@ -1,6 +1,29 @@
 # star_analysis
 
-## Glossary and Specifications
+## Getting Started
+### Prerequisites
+- Python 3.10
+- `pip install -r requirements.txt`
+- navigate to the project root directory
+- configure PYTHONPATH: `export PYTHONPATH=$PYTHONPATH:$(pwd)`
+- `python star_analysis/stara_cli.py download`. This can take hours depending on the server load.
+- `python star_analysis/stara_cli.py repair`. This is only necessary, if the internet connection is lost while downloading. The downloaded files are checked for integrity and repaired if necessary.
+- `python star_analysis/stara_cli.py align`. This can take a while but reduces computation time later on.
+
+### Usage
+Our deep learning approach can be used via two entrypoints:
+- `python star_analysis/run_script.py` to train and test a model on the SDSS dataset.
+- `python star_analysis/stara_cli.py run` as a wip command line tool as a collection of useful additional utils like downloading, repairing and aligning data.
+
+We recommend, if available, to use the downloaded and aligned data attached with the ZIP. 
+If the archive has been unpacked and the script run from the correct location, the data should be used automatically. 
+Also included are models that have already been trained. 
+The model `final-models/model-run-UNET-2023-06-30 00:17:11.130331.pt` is the selected final model (purple in the report plots).
+It is loaded and used in `star_analysis/experiments/visualizations.ipynb` for predictions and visualizations.
+
+## General SDSS Information
+
+### Glossary and Specifications
 - SDSS: Sloan Digital Sky Survey. This is our data source.
 - DR: Data Release. We selected DR17.
 - Rerun: A rerun is a reprocessing of the data. We selected 301.
@@ -11,7 +34,7 @@
 - Object: A star, galaxy, or other astronomical object.
 - FITS: Flexible Image Transport System. A file format used to store astronomical data.
 
-## Data
+### Data
 We are using the following data:
 - FITS files for the five filters (u, g, r, i, z) for each field.
 - DR17 rerun 301.
@@ -19,17 +42,17 @@ We are using the following data:
 - We can download the FITS files via the rcf-ids in Fields.csv.
 - Fields are overlapping by 10%. We should skip one Field between subsets.
 
-### Alignement between:
+#### Alignement between:
 - IRG: i, r, g as jpg. (frame-irg-001000-1-0027.jpg)
 - u: u as FITS. (frame-u-001000-1-0027.fits)
 - z: z from FITS. (frame-z-001000-1-0027.fits)
 - Labels: ?
 
-### Download
+#### Download
 Use syntax as described in https://www.sdss4.org/dr17/data_access/bulk/ .
 
 
-# SDSS Information
+## SDSS Information
 https://www.sdss4.org/dr17/help/glossary/
 https://www.sdss4.org/dr14/imaging/imaging_basics/
 https://dr12.sdss.org/fields/raDec?ra=143&dec=15

@@ -6,15 +6,16 @@ from star_analysis.data.augmentations import Augmentations
 
 
 def execute():
-    runner = SdssRunner()
+    print('Executing...')
+    runner = SdssRunner(project_name='simple-run')
 
     run = Run(
         SdssRunConfig(
             model_config=SdssModelConfig(
                 learning_rate=1e-3,
-                batch_size=80,
+                batch_size=32,
                 model_type=ModelTypes.UNET,
-                loss_type=LossType.DICE
+                loss_type=LossType.DA_DICE
             ),
             augmentation=Augmentations.NONE,
             shuffle_train=True
@@ -39,6 +40,7 @@ def execute():
         trainer_config=None,
     )[0]
     print(result_dict)
+    print('Done.')
 
 
 if __name__ == '__main__':

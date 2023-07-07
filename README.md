@@ -6,17 +6,21 @@
 - `pip install -r requirements.txt`
 - navigate to the project root directory
 - configure PYTHONPATH: `export PYTHONPATH=$PYTHONPATH:$(pwd)`
+
+Prerequisites for training:
 - `python star_analysis/stara_cli.py download`. This can take hours depending on the server load.
 - `python star_analysis/stara_cli.py repair`. This is only necessary, if the internet connection is lost while downloading. The downloaded files are checked for integrity and repaired if necessary.
 - `python star_analysis/stara_cli.py align`. This can take a while but reduces computation time later on.
 
+
 ### Usage
 Our deep learning approach can be used via two entrypoints:
 - `python star_analysis/run_script.py` to train and test a model on the SDSS dataset.
-- `python star_analysis/stara_cli.py run` as a wip command line tool as a collection of useful additional utils like downloading, repairing and aligning data.
+- `python star_analysis/stara_cli.py --help` as a wip command line tool as a collection of useful additional utils like downloading, repairing and aligning data.
+- for just using the trained model, take a look at the visualization notebook, linked below.
 
-We recommend, if available, to use the downloaded and aligned data attached with the ZIP. 
-If the archive has been unpacked and the script run from the correct location, the data should be used automatically. 
+We recommend, if available, to use already downloaded and aligned data for faster processing. 
+If the data is at the correct location and the script run from the correct location, the data should be used automatically. 
 Also included are models that have already been trained. 
 The model `final-models/model-run-UNET-2023-06-30 00:17:11.130331.pt` is the selected final model (purple in the report plots).
 It is loaded and used in `star_analysis/experiments/visualizations.ipynb` for predictions and visualizations.

@@ -1,5 +1,0 @@
-For our deep learning experiments we decided on randomly sampling the slices in train, test and validation set. This should preserve the class distribution and prevent the model from fitting to local correlations.
-The code for splitting can be seen in \path{star_analysis/data/datamodules.py}.
-
-For the classical AI we used the first $N$ images for training and then $M$ images for testing. Here the model could easily fit to local correlations. Since the models were not able to differentiate between stars, galaxies and background at all, we decided on not further improving these approaches and focussed on the deep learning experiments.
-For code see the next chapter.

@@ -1,4 +1,4 @@
-# star_analysis
+# Star and Galaxy Segmentation
 
 ## Getting Started
 ### Prerequisites
